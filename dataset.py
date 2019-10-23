@@ -24,6 +24,7 @@ def get_features(features_file, standardize):
     return features
 
 def read_dortmund(prefix, standardize):
+    print('opening %s...'%prefix, end='', flush=True)
     graph_file = os.path.join(prefix, 'DS_graph_indicator.txt')
     graph_ids = []
     graph_nodes = defaultdict(list)
@@ -57,4 +58,5 @@ def read_dortmund(prefix, standardize):
     for node_id, graph_id in enumerate(graph_ids):
         new_node_id = new_node_ids[node_id]
         graph_features[graph_id][new_node_id,:] = features[node_id,:]
+    print(' success !', flush=True)
     return graph_adj, graph_features
