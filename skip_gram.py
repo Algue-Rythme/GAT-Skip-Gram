@@ -33,7 +33,7 @@ def get_labels(pair_per_graph, k):
 def get_batch_embeddings(wl_embedder, graph_embedder,
                          graph_adj, graph_f,
                          pair_per_graph, k):
-    graph_indexes = random.choices(list(range(len(graph_adj))), k+1)
+    graph_indexes = random.sample(list(range(len(graph_adj))), k+1)
     graph_embeds = graph_embedder(graph_indexes)
     nodes_tensor = []
     for index in graph_indexes:
@@ -41,7 +41,7 @@ def get_batch_embeddings(wl_embedder, graph_embedder,
         num_nodes = int(tf.shape(graph_adj[index])[0])
         max_depth = len(node_embeds)
         vocab = itertools.product(range(num_nodes),range(max_depth))
-        vocab = random.choices(list(vocab), pair_per_graph)
+        vocab = random.sample(list(vocab), pair_per_graph)
         node_embeds = [node_embeds[depth][node,:] for depth, node in vocab]
         nodes_tensor += node_embeds
     nodes_tensor = tf.stack(nodes_tensor)
@@ -54,7 +54,8 @@ def train_epoch(wl_embedder, graph_embedder,
                 num_batchs):
     labels = get_labels(pair_per_graph, k)
     optimizer = tf.keras.optimizers.Adam()
-    for _ in range(num_batchs):
+    progbar = tf.keras.utils.Progbar(num_batchs)
+    for step in range(num_batchs):
         with tf.GradientTape() as tape:
             nodes_tensor, graph_embeds = get_batch_embeddings(
                 wl_embedder, graph_embedder,
@@ -67,3 +68,4 @@ def train_epoch(wl_embedder, graph_embedder,
         dG, dWL = tape.gradient(loss, [G_weights, WL_weights])
         optimizer.apply_gradients(zip(dG, G_weights))
         optimizer.apply_gradients(zip(dWL, WL_weights))
+        progbar.update(step+1, [('loss', float(loss.numpy()))])
