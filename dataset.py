@@ -1,5 +1,6 @@
 import os
 from collections import defaultdict
+import numpy as np
 import tensorflow as tf
 import numpy as np
 
@@ -22,6 +23,16 @@ def get_features(features_file, standardize):
     if standardize:
         features = standardize_features(features)
     return features.numpy()
+
+def print_statistics(graph_adj, graph_features):
+    num_nodes = [int(graph.shape[0]) for graph in graph_adj]
+    num_edges = [int(tf.reduce_sum(graph)/2.) for graph in graph_adj]
+    print('num_graphs: %d'%len(graph_adj))
+    print('num_nodes: %d'%sum(num_nodes))
+    print('num_edges: %d'%sum(num_edges))
+    print('avg_nodes: %.2f'%np.array(num_nodes).mean())
+    print('avg_edges: %.2f'%np.array(num_edges).mean())
+    print('num_features: %d'%int(graph_features[0].shape[1]))
 
 def read_dortmund(prefix, standardize):
     print('opening %s...'%prefix, flush=True)
@@ -61,4 +72,5 @@ def read_dortmund(prefix, standardize):
         graph_features[graph_id][new_node_id,:] = features[node_id,:]
     graph_features = [tf.constant(graph, dtype=tf.float32) for graph in graph_features]
     print('%s opened with success !'%prefix, flush=True)
+    print_statistics(graph_adj, graph_features)
     return graph_adj, graph_features

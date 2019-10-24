@@ -2,15 +2,12 @@ import random
 import tensorflow as tf
 
 
-class GraphEmbedding(tf.keras.layers.Layer):
+class GraphEmbedding(tf.keras.models.Model):
 
     def __init__(self, num_graphs, num_features):
         super(GraphEmbedding, self).__init__()
         self.num_graphs = num_graphs
         self.num_features = num_features
-        self.embeds = None
-
-    def build(self, _):
         self.embeds = [
             self.add_weight(name=('graph_embed_%d'%i), shape=[self.num_features])
             for i in range(self.num_graphs)]
@@ -20,7 +17,6 @@ class GraphEmbedding(tf.keras.layers.Layer):
 
     def call(self, indices):
         return tf.stack(self.get_weights_from_indices(indices))
-
 
 def get_dense_batch(wl_embedder, graph_adj, graph_f, max_depth, k):
     graph_indexes = random.sample(list(range(len(graph_adj))), k+1)
@@ -37,11 +33,19 @@ def get_dense_batch(wl_embedder, graph_adj, graph_f, max_depth, k):
     labels = tf.constant(labels, dtype=tf.float32)
     return nodes_tensor, graph_indexes, labels
 
+def get_updated_metric(metric, labels, similarity, _):
+    labels = tf.reshape(labels, [-1])
+    similarity = tf.nn.sigmoid(tf.reshape(similarity, [-1]))
+    # weights = labels*(k-1) + 1.
+    metric.update_state(labels, similarity)
+    return metric.result().numpy()
+
 def train_epoch_dense(wl_embedder, graph_embedder,
                       graph_adj, graph_f,
                       max_depth, k, num_batchs):
     optimizer = tf.keras.optimizers.Adam()
     progbar = tf.keras.utils.Progbar(num_batchs)
+    metric = tf.keras.metrics.BinaryAccuracy()
     for step in range(num_batchs):
         with tf.GradientTape() as tape:
             nodes_tensor, graph_indexes, labels = get_dense_batch(
@@ -54,4 +58,5 @@ def train_epoch_dense(wl_embedder, graph_embedder,
         dG, dWL = tape.gradient(loss, [G_weights, WL_weights])
         optimizer.apply_gradients(zip(dG, G_weights))
         optimizer.apply_gradients(zip(dWL, WL_weights))
-        progbar.update(step+1, [('loss', float(loss.numpy().mean()))])
+        acc = get_updated_metric(metric, labels, similarity, k)
+        progbar.update(step+1, [('loss', float(loss.numpy().mean())), ('acc', acc)])
