@@ -129,15 +129,15 @@ class GraphAttention(tf.keras.layers.Layer):
             dense += mask
 
             # Apply softmax to get attention coefficients
-            dense = tf.keras.layers.softmax(dense)  # (N x N)
+            dense = tf.nn.softmax(dense)  # (N x N)
 
             # Apply dropout to features and attention coefficients
             if self.dropout_rate is not None:
-                dropout_attn = tf.keras.layers.Dropout(self.dropout_rate)(dense)  # (N x N)
-                dropout_feat = tf.keras.layers.Dropout(self.dropout_rate)(features)  # (N x F')
+                dense = tf.keras.layers.Dropout(self.dropout_rate)(dense)  # (N x N)
+                features = tf.keras.layers.Dropout(self.dropout_rate)(features)  # (N x F')
 
             # Linear combination with neighbors' features
-            node_features = tf.matmul(dropout_attn, dropout_feat)  # (N x F')
+            node_features = tf.matmul(dense, features)  # (N x F')
 
             if self.use_bias:
                 node_features = node_features + self.biases[head]
@@ -164,7 +164,7 @@ class StackedGraphAttention(tf.keras.models.Model):
     def call(self, inputs):
         x = inputs[0]
         A = inputs[1]
-        outputs = [x]
+        outputs = []
         for layer in self.ga_layers:
             x = layer((x, A))
             outputs.append(x)

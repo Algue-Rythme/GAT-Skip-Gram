@@ -12,20 +12,20 @@ def standardize_features(features):
 
 def get_features(features_file, standardize):
     with open(features_file, 'r') as f:
-        tokens = f.readline().split(',')
+        tokens = f.readline()
         features = []
         while tokens:
-            line = map(float, tokens)
+            line = list(map(float, tokens.split(',')))
             features.append(line)
-            tokens = f.readline().split(',')
+            tokens = f.readline()
     features = tf.constant(features, dtype=tf.float32)
     if standardize:
         features = standardize_features(features)
-    return features
+    return features.numpy()
 
 def read_dortmund(prefix, standardize):
-    print('opening %s...'%prefix, end='', flush=True)
-    graph_file = os.path.join(prefix, 'DS_graph_indicator.txt')
+    print('opening %s...'%prefix, flush=True)
+    graph_file = os.path.join(prefix, '%s_graph_indicator.txt'%prefix)
     graph_ids = []
     graph_nodes = defaultdict(list)
     new_node_ids = dict()
@@ -33,30 +33,32 @@ def read_dortmund(prefix, standardize):
         tokens = f.readline()
         node_id = 0
         while tokens:
-            graph_id = int(tokens)
+            graph_id = int(tokens)-1
             graph_ids.append(graph_id)
             new_node_ids[node_id] = len(graph_nodes[graph_id])
             graph_nodes[graph_id].append(node_id)
             node_id += 1
             tokens = f.readline()
-    graph_adj = [np.zeros(shape=(len(nodes),len(nodes)), dtype=np.float32) for _, nodes in graph_nodes]
-    adj_file = os.path.join(prefix, 'DS_A.txt')
+    graph_adj = [np.zeros(shape=(len(nodes),len(nodes)), dtype=np.float32) for _, nodes in graph_nodes.items()]
+    adj_file = os.path.join(prefix, '%s_A.txt'%prefix)
     with open(adj_file, 'r') as f:
-        tokens = f.readline().split()
+        tokens = f.readline()
         while tokens:
-            node_a, node_b = tokens
+            tokens = tokens.split(',')
+            node_a, node_b = int(tokens[0])-1, int(tokens[1])-1
             graph_a, graph_b = graph_ids[node_a], graph_ids[node_b]
             assert graph_a == graph_b
             node_a, node_b = new_node_ids[node_a], new_node_ids[node_b]
             graph_adj[graph_a][node_a, node_b] = 1.
-            tokens = f.readline().split()
+            tokens = f.readline()
     graph_adj = [tf.constant(adj, dtype=tf.float32) for adj in graph_adj]
-    features_file = os.path.join(prefix, 'DS_node_attributes.txt')
+    features_file = os.path.join(prefix, '%s_node_attributes.txt'%prefix)
     features = get_features(features_file, standardize)
     num_features = int(features.shape[1])
-    graph_features = [tf.constant(len(nodes), num_features) for nodes in range(graph_adj)]
+    graph_features = [np.zeros(shape=(len(nodes), num_features), dtype=np.float32) for nodes in graph_adj]
     for node_id, graph_id in enumerate(graph_ids):
         new_node_id = new_node_ids[node_id]
         graph_features[graph_id][new_node_id,:] = features[node_id,:]
-    print(' success !', flush=True)
+    graph_features = [tf.constant(graph, dtype=tf.float32) for graph in graph_features]
+    print('%s opened with success !'%prefix, flush=True)
     return graph_adj, graph_features
