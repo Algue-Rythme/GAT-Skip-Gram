@@ -18,7 +18,7 @@ def learn_embeddings(graph_embedder_file, labels_file, ratio):
     clf.fit(x_train, y_train)
     y_pred = clf.predict(x_test)
     acc = accuracy_score(y_test, y_pred)
-    print('Accuracy: ', acc)
+    print('Accuracy: %.2f%%'%(acc*100.))
 
 
 if __name__ == '__main__':
