@@ -12,6 +12,11 @@ class GraphEmbedding(tf.keras.models.Model):
             self.add_weight(name=('graph_embed_%d'%i), shape=[self.num_features])
             for i in range(self.num_graphs)]
 
+    def dump_to_csv(self, csv_file):
+        with open(csv_file, 'w') as f:
+            for embed in self.embeds:
+                f.write('\t'.join(map(str, embed.numpy().tolist()))+'\n')
+
     def get_weights_from_indices(self, indices):
         return [self.embeds[index] for index in indices]
 
@@ -43,7 +48,8 @@ def get_updated_metric(metric, labels, similarity, _):
 def train_epoch_dense(wl_embedder, graph_embedder,
                       graph_adj, graph_f,
                       max_depth, k, num_batchs):
-    optimizer = tf.keras.optimizers.Adam()
+    optimizer_G = tf.keras.optimizers.SGD(learning_rate=1e-2)
+    optimizer_WL = tf.keras.optimizers.Adam()
     progbar = tf.keras.utils.Progbar(num_batchs)
     metric = tf.keras.metrics.BinaryAccuracy()
     for step in range(num_batchs):
@@ -56,7 +62,7 @@ def train_epoch_dense(wl_embedder, graph_embedder,
         G_weights = graph_embedder.get_weights_from_indices(graph_indexes)
         WL_weights = wl_embedder.trainable_variables
         dG, dWL = tape.gradient(loss, [G_weights, WL_weights])
-        optimizer.apply_gradients(zip(dG, G_weights))
-        optimizer.apply_gradients(zip(dWL, WL_weights))
+        optimizer_G.apply_gradients(zip(dG, G_weights))
+        optimizer_WL.apply_gradients(zip(dWL, WL_weights))
         acc = get_updated_metric(metric, labels, similarity, k)
         progbar.update(step+1, [('loss', float(loss.numpy().mean())), ('acc', acc)])
