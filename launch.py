@@ -37,7 +37,7 @@ if __name__ == '__main__':
     random.seed(515)
     np.random.seed(789)
     tf.random.set_seed(146)
-    available_tasks = ['ENZYMES', 'PROTEINS', 'PROTEINS_full']
+    available_tasks = ['ENZYMES', 'PROTEINS', 'PROTEINS_full', 'MUTAG', 'PTC_FM']
     parser = argparse.ArgumentParser()
     parser.add_argument('task', help='Task to execute. Only %s are currently available.'%str(available_tasks))
     args = parser.parse_args()

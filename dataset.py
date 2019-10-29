@@ -11,18 +11,47 @@ def standardize_features(features):
     features = (features - mean) / std
     return features
 
-def get_features(features_file, standardize):
-    with open(features_file, 'r') as f:
-        tokens = f.readline()
-        features = []
-        while tokens:
-            line = list(map(float, tokens.split(',')))
-            features.append(line)
+def features_from_attribute_file(prefix, standardize):
+    attribute_file = os.path.join(prefix, '%s_node_attributes.txt'%prefix)
+    try:
+        with open(attribute_file, 'r') as f:
             tokens = f.readline()
-    features = tf.constant(features, dtype=tf.float32)
-    if standardize:
-        features = standardize_features(features)
-    return features.numpy()
+            attributes = []
+            while tokens:
+                line = list(map(float, tokens.split(',')))
+                attributes.append(line)
+                tokens = f.readline()
+        attributes = tf.constant(attributes, dtype=tf.float32)
+        if standardize:
+            attributes = standardize_features(attributes)
+        return attributes
+    except IOError:
+        return None
+
+def features_from_label_file(prefix):
+    label_file = os.path.join(prefix, '%s_node_labels.txt'%prefix)
+    try:
+        with open(label_file, 'r') as f:
+            tokens = f.readline()
+            labels = []
+            label_set = set()
+            while tokens:
+                label = int(tokens)
+                label_set.add(label)
+                labels.append(label)
+                tokens = f.readline()
+        labels = tf.keras.backend.one_hot(labels, len(label_set))
+        return tf.constant(labels, dtype=tf.float32)
+    except IOError:
+        return None
+
+def get_features(prefix, standardize):
+    attributes = features_from_attribute_file(prefix, standardize)
+    labels = features_from_label_file(prefix)
+    features = attributes if attributes is not None else labels
+    if None not in [attributes, labels]:
+        features = tf.concat([features, labels], axis=1)
+    return features
 
 def print_statistics(graph_adj, graph_features):
     num_nodes = [int(graph.shape[0]) for graph in graph_adj]
@@ -63,8 +92,7 @@ def read_dortmund(prefix, standardize):
             graph_adj[graph_a][node_a, node_b] = 1.
             tokens = f.readline()
     graph_adj = [tf.constant(adj, dtype=tf.float32) for adj in graph_adj]
-    features_file = os.path.join(prefix, '%s_node_attributes.txt'%prefix)
-    features = get_features(features_file, standardize)
+    features = get_features(prefix, standardize)
     num_features = int(features.shape[1])
     graph_features = [np.zeros(shape=(len(nodes), num_features), dtype=np.float32) for nodes in graph_adj]
     for node_id, graph_id in enumerate(graph_ids):
