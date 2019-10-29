@@ -24,7 +24,7 @@ def learn_embeddings(graph_embedder_file, labels_file, ratio):
 if __name__ == '__main__':
     random.seed(599)
     np.random.seed(3165)
-    available_tasks = ['ENZYMES', 'PROTEINS', 'PROTEINS_full']
+    available_tasks = ['ENZYMES', 'PROTEINS', 'PROTEINS_full', 'MUTAG', 'PTC_FM']
     parser = argparse.ArgumentParser()
     parser.add_argument('task', help='Task to execute. Only %s are currently available.'%str(available_tasks))
     args = parser.parse_args()
