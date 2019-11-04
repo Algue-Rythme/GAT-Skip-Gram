@@ -9,7 +9,7 @@ class GraphEmbedding(tf.keras.models.Model):
         self.num_graphs = num_graphs
         self.num_features = num_features
         self.embeds = [
-            self.add_weight(name=('graph_embed_%d'%i), shape=[self.num_features])
+            self.add_weight(name=('graph_embed_%d'%i), shape=[self.num_features], initializer='zeros')
             for i in range(self.num_graphs)]
 
     def dump_to_csv(self, csv_file):
@@ -48,7 +48,7 @@ def get_updated_metric(metric, labels, similarity, _):
 def train_epoch_dense(wl_embedder, graph_embedder,
                       graph_adj, graph_f,
                       max_depth, k, num_batchs):
-    optimizer_G = tf.keras.optimizers.SGD(learning_rate=1e-2)
+    optimizer_G = tf.keras.optimizers.SGD(learning_rate=1e-1)
     optimizer_WL = tf.keras.optimizers.Adam()
     progbar = tf.keras.utils.Progbar(num_batchs)
     metric = tf.keras.metrics.BinaryAccuracy()
