@@ -159,7 +159,7 @@ class StackedGraphAttention(tf.keras.models.Model):
 
     def __init__(self, num_gat_layers, num_heads, num_features):
         super(StackedGraphAttention, self).__init__()
-        self.ga_layers = [GraphAttention(num_heads, num_features, activation='elu') for _ in range(num_gat_layers)]
+        self.ga_layers = [GraphAttention(num_features, num_heads, activation='elu') for _ in range(num_gat_layers)]
 
     def call(self, inputs):
         x = inputs[0]

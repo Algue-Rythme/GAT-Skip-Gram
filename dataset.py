@@ -2,7 +2,6 @@ import os
 from collections import defaultdict
 import numpy as np
 import tensorflow as tf
-import numpy as np
 
 
 def standardize_features(features):
@@ -49,7 +48,7 @@ def get_features(prefix, standardize):
     attributes = features_from_attribute_file(prefix, standardize)
     labels = features_from_label_file(prefix)
     features = attributes if attributes is not None else labels
-    if None not in [attributes, labels]:
+    if attributes is not None and labels is not None:
         features = tf.concat([features, labels], axis=1)
     return features
 
