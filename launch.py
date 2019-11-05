@@ -50,7 +50,7 @@ if __name__ == '__main__':
     print('Seed used: %d', seed)
     np.random.seed(seed + 789)
     tf.random.set_seed(seed + 146)
-    available_tasks = ['ENZYMES', 'PROTEINS', 'PROTEINS_full', 'MUTAG', 'PTC_FM', 'NCI1', 'PTC_FR', 'FRANKENSTEIN']
+    available_tasks = ['ENZYMES', 'PROTEINS', 'PROTEINS_full', 'MUTAG', 'PTC_FM', 'NCI1', 'PTC_FR']
     parser = argparse.ArgumentParser()
     parser.add_argument('task', help='Task to execute. Only %s are currently available.'%str(available_tasks))
     args = parser.parse_args()
