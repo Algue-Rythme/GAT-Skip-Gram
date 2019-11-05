@@ -67,7 +67,7 @@ class GraphConvolution(tf.keras.layers.Layer):
     def call(self, inputs):
         X = inputs[0]  # Node features (N x F)
         A = inputs[1]  # normalized Adjacency matrix (N x N)
-        y = tf.einsum('ij,jf,fk->ik', A, X, self.kernel)
+        y = A @ X @ self.kernel
         if self.use_bias:
             y = y + self.bias
         y = self.activation(y)
@@ -85,7 +85,7 @@ class StackedGraphConvolution(tf.keras.models.Model):
         A = inputs[1] + tf.eye(num_rows=x.shape[0])
         D = tf.math.reduce_sum(A, axis=1)
         D = tf.linalg.diag(tf.math.rsqrt(D))
-        A = tf.einsum('ij,jk,kl->il', D, A, D)
+        A = D @ A @ D
         outputs = []
         for layer in self.ga_layers:
             x = layer((x, A))

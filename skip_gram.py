@@ -41,14 +41,13 @@ def get_dense_batch(wl_embedder, graph_adj, graph_f, max_depth, k):
 def get_updated_metric(metric, labels, similarity, _):
     labels = tf.reshape(labels, [-1])
     similarity = tf.nn.sigmoid(tf.reshape(similarity, [-1]))
-    # weights = labels*(k-1) + 1.
     metric.update_state(labels, similarity)
     return metric.result().numpy()
 
 def train_epoch_dense(wl_embedder, graph_embedder,
                       graph_adj, graph_f,
-                      max_depth, k, num_batchs):
-    optimizer_G = tf.keras.optimizers.SGD(learning_rate=1e-1)
+                      max_depth, k, num_batchs, lbda):
+    optimizer_G = tf.keras.optimizers.Nadam()
     optimizer_WL = tf.keras.optimizers.Adam()
     progbar = tf.keras.utils.Progbar(num_batchs)
     metric = tf.keras.metrics.BinaryAccuracy()
@@ -58,7 +57,7 @@ def train_epoch_dense(wl_embedder, graph_embedder,
                 wl_embedder, graph_adj, graph_f, max_depth, k)
             graph_embeds = graph_embedder(graph_indexes)
             similarity = tf.einsum('if,jf->ij', graph_embeds, nodes_tensor)
-            loss = tf.nn.sigmoid_cross_entropy_with_logits(labels, similarity)
+            loss = tf.nn.weighted_cross_entropy_with_logits(labels, similarity, lbda*float(k))
         G_weights = graph_embedder.get_weights_from_indices(graph_indexes)
         WL_weights = wl_embedder.trainable_variables
         dG, dWL = tape.gradient(loss, [G_weights, WL_weights])

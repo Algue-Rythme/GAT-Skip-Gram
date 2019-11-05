@@ -5,7 +5,7 @@
 Datasets available:
 
 ```
-['ENZYMES', 'PROTEINS', 'PROTEINS_full']
+['ENZYMES', 'PROTEINS', 'PROTEINS_full', 'MUTAG', 'PTC_FM', 'NCI1', 'PTC_FR', 'FRANKENSTEIN']
 ```
 
 Usage:

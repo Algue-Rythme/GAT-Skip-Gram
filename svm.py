@@ -5,6 +5,7 @@ import numpy as np
 from sklearn import svm
 from sklearn.metrics import accuracy_score
 from sklearn.model_selection import train_test_split
+import tensorflow as tf
 
 
 def learn_embeddings(embeddings, labels, ratio):
@@ -13,7 +14,6 @@ def learn_embeddings(embeddings, labels, ratio):
     clf = svm.SVC(gamma='scale')
     clf.fit(x_train, y_train)
     y_pred = clf.predict(x_test)
-    # y_test = np.zeros(shape=y_test.shape)-1.
     cur_acc = accuracy_score(y_test, y_pred)
     return cur_acc
 
@@ -34,9 +34,11 @@ if __name__ == '__main__':
             labels_data = np.loadtxt(f, ndmin=1)
         num_tests = 100
         accs = []
-        for _ in range(num_tests):
+        progbar = tf.keras.utils.Progbar(num_tests)
+        for test in range(num_tests):
             acc = learn_embeddings(embeddings_data, labels_data, ratio=0.2)
             accs.append(acc)
+            progbar.update(test+1, [('acc', acc*100.)])
         acc_avg = sum(accs) / len(accs)
         acc_var = sum([(acc-acc_avg)**2 for acc in accs]) / len(accs)
         acc_std = acc_var**0.5

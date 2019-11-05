@@ -20,9 +20,11 @@ def features_from_attribute_file(prefix, standardize):
                 line = list(map(float, tokens.split(',')))
                 attributes.append(line)
                 tokens = f.readline()
-        attributes = tf.constant(attributes, dtype=tf.float32)
         if standardize:
+            attributes = tf.constant(attributes, dtype=tf.float32)
             attributes = standardize_features(attributes)
+        else:
+            attributes = np.array(attributes, dtype=np.float32)
         return attributes
     except IOError:
         return None
