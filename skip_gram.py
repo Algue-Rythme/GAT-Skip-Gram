@@ -45,9 +45,9 @@ def get_updated_metric(metric, labels, similarity, _):
     return metric.result().numpy()
 
 def train_epoch_dense(wl_embedder, graph_embedder,
-                      graph_adj, graph_f,
+                      graph_adj, graph_f, edge_f,
                       max_depth, k, num_batchs, lbda):
-    optimizer_G = tf.keras.optimizers.Nadam()
+    optimizer_G = tf.keras.optimizers.Adam()
     optimizer_WL = tf.keras.optimizers.Adam()
     progbar = tf.keras.utils.Progbar(num_batchs)
     metric = tf.keras.metrics.BinaryAccuracy()

@@ -31,7 +31,7 @@ def get_graph_wl_extractor(extractor, max_depth, num_features):
     raise ValueError
 
 def train_dense(dataset_name, extractor, max_depth, num_features, k, num_epochs, lbda, train_wl):
-    graph_adj, graph_features = dataset.read_dortmund(dataset_name, standardize=True)
+    graph_adj, graph_features, edge_features = dataset.read_dortmund(dataset_name, standardize=True)
     num_graphs = len(graph_adj)
     wl_embedder = get_graph_wl_extractor(extractor, max_depth, num_features)
     wl_embedder.trainable = train_wl
@@ -40,7 +40,10 @@ def train_dense(dataset_name, extractor, max_depth, num_features, k, num_epochs,
     num_batchs = num_graphs
     for epoch in range(num_epochs):
         print('epoch %d/%d'%(epoch+1, num_epochs))
-        skip_gram.train_epoch_dense(wl_embedder, graph_embedder, graph_adj, graph_features, max_depth, k, num_batchs, lbda)
+        skip_gram.train_epoch_dense(
+            wl_embedder, graph_embedder,
+            graph_adj, graph_features, edge_features,
+            max_depth, k, num_batchs, lbda)
         wl_embedder.save_weights(wl_embedder_file)
         graph_embedder.save_weights(graph_embedder_file)
         graph_embedder.dump_to_csv(csv_file)
@@ -56,8 +59,8 @@ if __name__ == '__main__':
     args = parser.parse_args()
     if args.task in available_tasks:
         train_dense(args.task, extractor='gcn',
-                    max_depth=2, num_features=256, k=1,
-                    num_epochs=30, lbda=4., train_wl=False)
+                    max_depth=4, num_features=1024, k=1,
+                    num_epochs=30, lbda=4., train_wl=True)
     else:
         print('Unknown task %s'%args.task)
         parser.print_help()

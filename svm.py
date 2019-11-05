@@ -1,6 +1,6 @@
 import argparse
 import os
-# import random
+import random
 import numpy as np
 from sklearn import svm
 from sklearn.metrics import accuracy_score
@@ -19,8 +19,9 @@ def learn_embeddings(embeddings, labels, ratio):
 
 
 if __name__ == '__main__':
-    # random.seed(599)
-    # np.random.seed(3165)
+    seed = random.randint(1, 1000 * 1000)
+    print('Use seed %d'%seed)
+    np.random.seed(seed + 3165)
     available_tasks = ['ENZYMES', 'PROTEINS', 'PROTEINS_full', 'MUTAG', 'PTC_FM', 'NCI1', 'PTC_FR']
     parser = argparse.ArgumentParser()
     parser.add_argument('task', help='Task to execute. Only %s are currently available.'%str(available_tasks))
