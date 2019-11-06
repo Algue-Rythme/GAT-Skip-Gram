@@ -100,21 +100,21 @@ def get_graph_adj(prefix, graph_nodes, graph_ids, new_node_ids):
     graph_adj = [tf.constant(adj, dtype=tf.float32) for adj in graph_adj]
     return graph_adj, adj_lst
 
-def get_edge_features(prefix, standardize, graph_nodes, graph_ids, new_node_ids, adj_lst):
+def get_edge_features(prefix, _, graph_nodes, graph_ids, new_node_ids, adj_lst):
     label_file = os.path.join(prefix, '%s_edge_labels.txt'%prefix)
     try:
         labels, label_set = read_label_file(label_file)
     except IOError:
         return None
-    graph_edge_labels = [np.zeros(shape=(len(nodes),len(nodes)), dtype=np.int8) for _, nodes in graph_nodes.items()]
+    graph_edge_labels = [np.zeros(shape=(len(nodes),len(nodes)), dtype=np.int32) for _, nodes in graph_nodes.items()]
     for label, (node_a, node_b) in zip(labels, adj_lst):
         graph_a = graph_ids[node_a]
         new_node_a, new_node_b = new_node_ids[node_a], new_node_ids[node_b]
         graph_edge_labels[graph_a][new_node_a, new_node_b] = label
-    graph_edge_labels = tf.keras.backend.one_hot(graph_edge_labels, len(label_set))
-    return tf.constant(graph_edge_labels, dtype=tf.float32)
+    graph_edge_labels = [tf.keras.backend.one_hot(graph, len(label_set)) for graph in graph_edge_labels]
+    return graph_edge_labels
 
-def print_statistics(graph_adj, node_features):
+def print_statistics(graph_adj, node_features, edge_features):
     num_nodes = [int(graph.shape[0]) for graph in graph_adj]
     num_edges = [int(tf.reduce_sum(graph)/2.) for graph in graph_adj]
     print('num_graphs: %d'%len(graph_adj))
@@ -123,13 +123,19 @@ def print_statistics(graph_adj, node_features):
     print('avg_nodes: %.2f'%np.array(num_nodes).mean())
     print('avg_edges: %.2f'%np.array(num_edges).mean())
     print('num_node_features: %d'%int(node_features[0].shape[1]))
+    if edge_features[0].shape != (0,):
+        print('num_edge_features: %d'%int(edge_features[0].shape[2]))
+    else:
+        print('no edge features')
 
-def read_dortmund(prefix, standardize):
+def read_dortmund(prefix, with_edge_features, standardize):
     print('opening %s...'%prefix, flush=True)
     graph_ids, graph_nodes, new_node_ids = get_graph_node_ids(prefix)
     graph_adj, adj_lst = get_graph_adj(prefix, graph_nodes, graph_ids, new_node_ids)
     node_features = get_node_features(prefix, standardize, graph_ids, new_node_ids, graph_adj)
-    edge_features = get_edge_features(prefix, standardize, graph_nodes, graph_ids, new_node_ids, adj_lst)
+    edge_features =  [tf.constant([],dtype=tf.float32)]*len(graph_nodes)
+    if with_edge_features:
+        edge_features = get_edge_features(prefix, standardize, graph_nodes, graph_ids, new_node_ids, adj_lst)
     print('%s opened with success !'%prefix, flush=True)
-    print_statistics(graph_adj, node_features)
+    print_statistics(graph_adj, node_features, edge_features)
     return graph_adj, node_features, edge_features

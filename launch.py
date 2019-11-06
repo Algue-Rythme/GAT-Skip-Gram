@@ -31,7 +31,9 @@ def get_graph_wl_extractor(extractor, max_depth, num_features):
     raise ValueError
 
 def train_dense(dataset_name, extractor, max_depth, num_features, k, num_epochs, lbda, train_wl):
-    graph_adj, graph_features, edge_features = dataset.read_dortmund(dataset_name, standardize=True)
+    graph_adj, graph_features, edge_features = dataset.read_dortmund(dataset_name,
+                                                                     with_edge_features=False,
+                                                                     standardize=True)
     num_graphs = len(graph_adj)
     wl_embedder = get_graph_wl_extractor(extractor, max_depth, num_features)
     wl_embedder.trainable = train_wl

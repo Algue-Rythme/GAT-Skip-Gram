@@ -23,13 +23,13 @@ class GraphEmbedding(tf.keras.models.Model):
     def call(self, indices):
         return tf.stack(self.get_weights_from_indices(indices))
 
-def get_dense_batch(wl_embedder, graph_adj, graph_f, max_depth, k):
+def get_dense_batch(wl_embedder, graph_adj, graph_f, edge_f, max_depth, k):
     graph_indexes = random.sample(list(range(len(graph_adj))), k+1)
     graph_lengths = [int(graph_adj[index].shape[0])*max_depth for index in graph_indexes]
     nodes_tensor = []
     labels = []
     for i, index in enumerate(graph_indexes):
-        node_embeds = wl_embedder([graph_f[index], graph_adj[index]])
+        node_embeds = wl_embedder([graph_f[index], graph_adj[index], edge_f[index]])
         before, now, after = sum(graph_lengths[:i]), graph_lengths[i], sum(graph_lengths[i+1:])
         graph_indicator = before*[0.] + now*[1.] + after*[0.]
         labels.append(graph_indicator)
@@ -54,7 +54,7 @@ def train_epoch_dense(wl_embedder, graph_embedder,
     for step in range(num_batchs):
         with tf.GradientTape() as tape:
             nodes_tensor, graph_indexes, labels = get_dense_batch(
-                wl_embedder, graph_adj, graph_f, max_depth, k)
+                wl_embedder, graph_adj, graph_f, edge_f, max_depth, k)
             graph_embeds = graph_embedder(graph_indexes)
             similarity = tf.einsum('if,jf->ij', graph_embeds, nodes_tensor)
             loss = tf.nn.weighted_cross_entropy_with_logits(labels, similarity, lbda*float(k))

@@ -58,7 +58,7 @@ class GraphConvolution(tf.keras.layers.Layer):
                                       constraint=self.kernel_constraint,
                                       name='kernel')
 
-            # # Layer bias
+        # Layer bias
         if self.use_bias:
             self.bias = self.add_weight(shape=(self.F_, ),
                                         initializer=self.bias_initializer,
@@ -66,10 +66,10 @@ class GraphConvolution(tf.keras.layers.Layer):
                                         constraint=self.bias_constraint,
                                         name='bias')
 
-        if input_shape[2] is not None:
+        if input_shape[2] != (0,):
             F_edge = input_shape[2][-1]
 
-            # Layer kernel
+            # Layer kernel for edges
             self.edge_kernel = self.add_weight(shape=(F_edge, self.F_),
                                                initializer=self.kernel_initializer,
                                                regularizer=self.kernel_regularizer,
