@@ -21,7 +21,7 @@ def train_single_epoch(x_train, y_train, model, optimizer, batch_size):
                 loss = tf.nn.sparse_softmax_cross_entropy_with_logits(y_train[batch], logits)
                 acc_loss = loss if sample == batch else acc_loss + loss
                 metric.update_state(y_train[batch], tf.nn.softmax(logits))
-                acc_loss = acc_loss / tf.constant(max_batch - batch, dtype=tf.float32)
+        acc_loss = acc_loss / tf.constant(max_batch - batch, dtype=tf.float32)
         gradients = tape.gradient(acc_loss, model.trainable_variables)
         optimizer.apply_gradients(zip(gradients, model.trainable_variables))
         progbar.update(batch+batch_size, [('loss', float(loss.numpy().mean())), ('acc', metric.result().numpy())])
