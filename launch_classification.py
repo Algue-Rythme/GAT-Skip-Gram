@@ -21,7 +21,7 @@ def train_single_epoch(x_train, y_train, model, optimizer, batch_size):
                 loss = tf.nn.sparse_softmax_cross_entropy_with_logits(y_train[batch], logits)
                 acc_loss = loss if sample == batch else acc_loss + loss
                 metric.update_state(y_train[batch], tf.nn.softmax(logits))
-        acc_loss = acc_loss / tf.constant(max_batch - batch, dtype=tf.float32)
+            acc_loss = acc_loss / tf.constant(max_batch - batch, dtype=tf.float32)
         gradients = tape.gradient(acc_loss, model.trainable_variables)
         optimizer.apply_gradients(zip(gradients, model.trainable_variables))
         progbar.update(batch+batch_size, [('loss', float(loss.numpy().mean())), ('acc', metric.result().numpy())])
@@ -67,10 +67,16 @@ if __name__ == '__main__':
     tf.random.set_seed(seed + 146)
     parser = argparse.ArgumentParser()
     parser.add_argument('task', help='Task to execute. Only %s are currently available.'%str(dataset.available_tasks()))
+    parser.add_argument('num_epochs', type=int, default=100, help='Number of epochs')
+    parser.add_argument('batch_size', type=int, default=8, help='Number of graphs in each batch')
+    parser.add_argument('num_stages', type=int, default=2, help='Number of GCN layers in a single coarsening')
+    parser.add_argument('num_features', type=int, default=256, help='Size of feature space')
+    parser.add_argument('activation', default='activation', help='Activation function of GCN layers')
     args = parser.parse_args()
     print(args)
     if args.task in dataset.available_tasks():
-        train_classification(args.task, num_epochs=30, batch_size=1, num_stages=2, num_features=256, activation='relu')
+        train_classification(args.task, args.num_epochs, args.batch_size,
+                             args.num_stages, args.num_features, args.activation)
     else:
         print('Unknown task %s'%args.task)
         parser.print_help()
