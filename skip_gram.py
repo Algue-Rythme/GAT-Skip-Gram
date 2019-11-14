@@ -1,4 +1,5 @@
 import random
+import numpy as np
 import tensorflow as tf
 
 
@@ -11,6 +12,9 @@ class GraphEmbedding(tf.keras.models.Model):
         self.embeds = [
             self.add_weight(name=('graph_embed_%d'%i), shape=[self.num_features], initializer='zeros')
             for i in range(self.num_graphs)]
+
+    def get_numpy(self):
+        return np.array([embed.numpy() for embed in self.embeds])
 
     def dump_to_csv(self, csv_file):
         with open(csv_file, 'w') as f:
@@ -44,9 +48,9 @@ def get_updated_metric(metric, labels, similarity, _):
     metric.update_state(labels, similarity)
     return metric.result().numpy()
 
-def train_epoch_dense(wl_embedder, graph_embedder,
-                      graph_adj, graph_f, edge_f,
-                      max_depth, k, num_batchs, lbda):
+def train_epoch(wl_embedder, graph_embedder,
+                graph_adj, graph_f, edge_f,
+                max_depth, k, num_batchs, lbda):
     optimizer_G = tf.keras.optimizers.Adam()
     optimizer_WL = tf.keras.optimizers.Adam()
     progbar = tf.keras.utils.Progbar(num_batchs)

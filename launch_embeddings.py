@@ -7,6 +7,7 @@ import dataset
 import skip_gram
 import gat
 import gcn
+import svm
 
 
 def get_weight_filenames(dataset_name):
@@ -30,7 +31,7 @@ def get_graph_wl_extractor(extractor, max_depth, num_features):
         return gcn.StackedGraphConvolution(max_depth, num_features)
     raise ValueError
 
-def train_dense(dataset_name, extractor, max_depth, num_features, k, num_epochs, lbda, train_wl):
+def train_embeddings(dataset_name, extractor, max_depth, num_features, k, num_epochs, lbda, train_wl):
     graph_adj, graph_features, edge_features = dataset.read_dortmund(dataset_name,
                                                                      with_edge_features=False,
                                                                      standardize=True)
@@ -42,27 +43,28 @@ def train_dense(dataset_name, extractor, max_depth, num_features, k, num_epochs,
     num_batchs = num_graphs
     for epoch in range(num_epochs):
         print('epoch %d/%d'%(epoch+1, num_epochs))
-        skip_gram.train_epoch_dense(
+        skip_gram.train_epoch(
             wl_embedder, graph_embedder,
             graph_adj, graph_features, edge_features,
             max_depth, k, num_batchs, lbda)
         wl_embedder.save_weights(wl_embedder_file)
         graph_embedder.save_weights(graph_embedder_file)
         graph_embedder.dump_to_csv(csv_file)
+        svm.evaluate_embeddings(dataset_name, num_tests=10)
+
 
 if __name__ == '__main__':
     seed = random.randint(1, 1000 * 1000)
     print('Seed used: %d', seed)
     np.random.seed(seed + 789)
     tf.random.set_seed(seed + 146)
-    available_tasks = ['ENZYMES', 'PROTEINS', 'PROTEINS_full', 'MUTAG', 'PTC_FM', 'NCI1', 'PTC_FR']
     parser = argparse.ArgumentParser()
-    parser.add_argument('task', help='Task to execute. Only %s are currently available.'%str(available_tasks))
+    parser.add_argument('task', help='Task to execute. Only %s are currently available.'%str(dataset.available_tasks()))
     args = parser.parse_args()
-    if args.task in available_tasks:
-        train_dense(args.task, extractor='gcn',
-                    max_depth=4, num_features=1024, k=1,
-                    num_epochs=30, lbda=4., train_wl=True)
+    if args.task in dataset.available_tasks():
+        train_embeddings(args.task, extractor='gcn',
+                         max_depth=4, num_features=1024, k=1,
+                         num_epochs=30, lbda=4., train_wl=True)
     else:
         print('Unknown task %s'%args.task)
         parser.print_help()

@@ -1,6 +1,4 @@
-# Combine Graph Attention and Graph2Vec
-
-## Usage
+# Combine Skip Gram and Convolutional Neural Networks
 
 Datasets available:
 
@@ -8,10 +6,14 @@ Datasets available:
 ['ENZYMES', 'PROTEINS', 'PROTEINS_full', 'MUTAG', 'PTC_FM', 'NCI1', 'PTC_FR']
 ```
 
+Note: 'ENZYMES' contains 32 unconnected graphs.
+
+## Usage of the embedding method
+
 Usage:
 
 ```
-python3 launch.py ENZYMES
+python3 launch_embeddings.py ENZYMES
 ```
 
 It will create a folder 'ENZYMES_weights' with:
@@ -30,3 +32,14 @@ python3 svm.py ENZYMES
 ```
 
 It will print the accuracy.
+
+This algorithm aims to produce graph embeddings with the use convolutional networks (GCN or GAT) to extract vocabulary.  
+Then, using Skip Gram with graph embeddings as context embeddings, we generate embeddings for the graph that contain information on the vocabulary inside.  
+
+## Usage of classification method
+
+Instead of training raw embeddings, the embeddings are now function of the node features, and the fixed size representation is obtained via coarsening of the initial graph. Kron reduction is used thanks to its capacity to preserve the spectral properties of the graph.
+
+```
+python3 launch_classification.py ENZYMES
+```

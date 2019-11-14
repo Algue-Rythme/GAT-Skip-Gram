@@ -4,11 +4,19 @@
 import tensorflow as tf
 
 
+def normalize_adjacency(A):
+    A = A + tf.eye(num_rows=A.shape[0])
+    D = tf.math.reduce_sum(A, axis=1)
+    D = tf.linalg.diag(tf.math.rsqrt(D))
+    A = D @ A @ D
+    return A
+
+
 class GraphConvolution(tf.keras.layers.Layer):
 
     def __init__(self,
                  F_,
-                 dropout_rate=None,
+                 auto_normalize=False,
                  activation='relu',
                  use_bias=True,
                  kernel_initializer='glorot_uniform',
@@ -21,7 +29,7 @@ class GraphConvolution(tf.keras.layers.Layer):
                  **kwargs):
 
         self.F_ = F_  # Number of output features (F' in the paper)
-        self.dropout_rate = dropout_rate  # Internal dropout rate
+        self.auto_normalize = auto_normalize
         self.activation = tf.keras.activations.get(activation)  # Eq. 4 in the paper
         self.use_bias = use_bias
 
@@ -48,7 +56,7 @@ class GraphConvolution(tf.keras.layers.Layer):
 
 
     def build(self, input_shape):
-        assert len(input_shape) >= 3
+        assert len(input_shape) in [2, 3]
         F = input_shape[0][-1]
 
         # Layer kernel
@@ -66,7 +74,7 @@ class GraphConvolution(tf.keras.layers.Layer):
                                         constraint=self.bias_constraint,
                                         name='bias')
 
-        if input_shape[2] != (0,):
+        if len(input_shape) == 3 and input_shape[2] != (0,):
             F_edge = input_shape[2][-1]
 
             # Layer kernel for edges
@@ -79,9 +87,11 @@ class GraphConvolution(tf.keras.layers.Layer):
     def call(self, inputs):
         X = inputs[0]  # Node features (N x F)
         A = inputs[1]  # normalized Adjacency matrix (N x N)
-        Z = inputs[2]
+        if self.auto_normalize:
+            A = normalize_adjacency(A)
         y = A @ X @ self.kernel
         if self.edge_kernel is not None:
+            Z = inputs[2]
             y = y + tf.einsum('ij,ijf,fg->ig', A, Z, self.edge_kernel)
         if self.use_bias:
             y = y + self.bias
@@ -97,11 +107,8 @@ class StackedGraphConvolution(tf.keras.models.Model):
 
     def call(self, inputs):
         x = inputs[0]
-        A = inputs[1] + tf.eye(num_rows=x.shape[0])
+        A = normalize_adjacency(inputs[1])
         Z = inputs[2]
-        D = tf.math.reduce_sum(A, axis=1)
-        D = tf.linalg.diag(tf.math.rsqrt(D))
-        A = D @ A @ D
         outputs = []
         for layer in self.ga_layers:
             x = layer((x, A, Z))

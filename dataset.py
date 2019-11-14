@@ -139,3 +139,14 @@ def read_dortmund(prefix, with_edge_features, standardize):
     print('%s opened with success !'%prefix, flush=True)
     print_statistics(graph_adj, node_features, edge_features)
     return graph_adj, node_features, edge_features
+
+def read_graph_labels(dataset_name):
+    labels_filename = os.path.join(dataset_name, '%s_graph_labels.txt'%dataset_name)
+    labels, label_set = read_label_file(labels_filename)
+    class_indexes_remapper = dict(zip(label_set, range(len(label_set))))
+    labels = [class_indexes_remapper[label] for label in labels]
+    return labels, len(label_set)
+
+def available_tasks():
+    tasks = ['ENZYMES', 'PROTEINS', 'PROTEINS_full', 'MUTAG', 'PTC_FM', 'NCI1', 'PTC_FR']
+    return tasks
