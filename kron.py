@@ -1,7 +1,6 @@
 import tensorflow as tf
-import pygsp
-import matplotlib as plt
 import gcn
+import utils
 
 
 def get_schur_blocks(matrix, major, minor):
@@ -15,7 +14,10 @@ def get_schur_blocks(matrix, major, minor):
 
 def get_schur_complement(matrix, major, minor):
     A, B, C, D = get_schur_blocks(matrix, major, minor)
-    M_D = A - B @ tf.linalg.inv(D) @ C
+    try:
+        M_D = A - B @ tf.linalg.inv(D) @ C
+    except tf.errors.InvalidArgumentError:
+        return A
     return M_D
 
 def build_laplacian(adj):
@@ -27,7 +29,7 @@ def largest_eigen_vector_method(laplacian):
     _, eigenvectors = tf.linalg.eigh(tf.dtypes.cast(laplacian, dtype=tf.float64))
     largest_eigenvector = eigenvectors[:,-1]
     polarity = tf.math.sign(largest_eigenvector).numpy().tolist()
-    major = [index for index, sign in enumerate(polarity) if sign > 0]
+    major = [index for index, sign in enumerate(polarity) if sign >= 0]
     minor = [index for index, sign in enumerate(polarity) if sign < 0]
     if not major:
         return minor[:len(minor)//2], minor[len(minor)//2:]
@@ -55,16 +57,10 @@ class KronCoarsening(tf.keras.layers.Layer):
         X, A = inputs
         L = build_laplacian(A)
         major, minor = self.reduction_method(L)
+        assert major and minor
         X_reduced = tf.gather(X, indices=major, axis=-2)
         A_reduced = kron_reduction(L, major, minor)
-        return X_reduced, A_reduced
-
-def plot_graph(A_pyramid):
-    for adj in A_pyramid:
-        graph = pygsp.graphs.Graph(adj)
-        graph.set_coordinates()
-        pygsp.plotting.plot_graph(graph)
-    plt.pyplot.show()
+        return X_reduced, A_reduced, major
 
 class ConvolutionalCoarsenerNetwork(tf.keras.models.Model):
 
@@ -85,11 +81,11 @@ class ConvolutionalCoarsenerNetwork(tf.keras.models.Model):
             while X.shape[0] != 1:
                 for block in self.blocks:
                     X = block((X, A))
-                X, A = self.coarsener((X, A))
-                A_pyramid.append(A)
+                X, A, major = self.coarsener((X, A))
+                A_pyramid.append((A, major))
             X = self.fc_out(X)
             return tf.squeeze(X)
         except tf.errors.InvalidArgumentError as e:
             print('\n', e)
-            plot_graph(A_pyramid)
+            utils.plot_pyramid(A_pyramid)
             raise e

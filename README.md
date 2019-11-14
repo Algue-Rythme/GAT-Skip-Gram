@@ -43,3 +43,7 @@ Instead of training raw embeddings, the embeddings are now function of the node 
 ```
 python3 launch_classification.py ENZYMES
 ```
+
+## Future work
+
+Improve aggregation of disconnected components with Kron.  

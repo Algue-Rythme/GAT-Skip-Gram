@@ -5,35 +5,26 @@ import numpy as np
 import tensorflow as tf
 import dataset
 import kron
+import utils
 
 
-def train_test_split(*lsts, **kwargs):
-    len_x = len(lsts[0])
-    assert all([len_x == len(x) for x in lsts])
-    indices = tf.range(start=0, limit=len_x, dtype=tf.int32)
-    shuffled_indices = tf.random.shuffle(indices)
-    shuffled_lsts = [[x[index] for index in shuffled_indices] for x in lsts]
-    train_lim = int(kwargs['split_ratio'] * len_x)
-    train = [x[train_lim:] for x in shuffled_lsts]
-    test = [x[:train_lim] for x in shuffled_lsts]
-    x_train, y_train = train[:-1], train[-1]
-    x_test, y_test = test[:-1], test[-1]
-    nester = lambda xs: list(map(lambda t: tuple(map(lambda x: tf.constant(x, dtype=tf.float32), t)), zip(*xs)))
-    x_train, x_test = nester(x_train), nester(x_test)
-    return (x_train, y_train), (x_test, y_test)
-
-def train_single_epoch(x_train, y_train, model, optimizer):
+def train_single_epoch(x_train, y_train, model, optimizer, batch_size):
     num_graphs = len(y_train)
     progbar = tf.keras.utils.Progbar(num_graphs)
     metric = tf.keras.metrics.SparseCategoricalAccuracy()
-    for batch in range(num_graphs):
+    for batch in range(0, num_graphs, batch_size):
+        acc_loss = None
         with tf.GradientTape() as tape:
-            logits = model(x_train[batch])
-            loss = tf.nn.sparse_softmax_cross_entropy_with_logits(y_train[batch], logits)
-        gradients = tape.gradient(loss, model.trainable_variables)
+            max_batch = min(batch+batch_size, num_graphs)
+            for sample in range(batch, max_batch):
+                logits = model(x_train[sample])
+                loss = tf.nn.sparse_softmax_cross_entropy_with_logits(y_train[batch], logits)
+                acc_loss = loss if sample == batch else acc_loss + loss
+            acc_loss = acc_loss / tf.constant(max_batch - batch, dtype=tf.float32)
+            metric.update_state(y_train[batch], tf.nn.softmax(logits))
+        gradients = tape.gradient(acc_loss, model.trainable_variables)
         optimizer.apply_gradients(zip(gradients, model.trainable_variables))
-        metric.update_state(y_train[batch], tf.nn.softmax(logits))
-        progbar.update(batch+1, [('loss', float(loss.numpy().mean())), ('acc', metric.result().numpy())])
+        progbar.update(batch+batch_size, [('loss', float(loss.numpy().mean())), ('acc', metric.result().numpy())])
 
 def evaluate(x_test, y_test, model):
     num_graphs = len(y_test)
@@ -45,27 +36,23 @@ def evaluate(x_test, y_test, model):
         metric.update_state(y_test[batch], tf.nn.softmax(logits))
         progbar.update(batch+1, [('loss', float(loss.numpy().mean())), ('acc', metric.result().numpy())])
 
-def shuffle_dataset(x_train, y_train):
-    indices = list(range(len(y_train)))
-    random.shuffle(indices)
-    return [x_train[index] for index in indices], [y_train[index] for index in indices]
-
-def train_classification(dataset_name, num_epochs):
+def train_classification(dataset_name, num_epochs, batch_size, num_stages, num_features, activation):
     with tf.device('/gpu:0'):
         graph_adj, graph_features, _ = dataset.read_dortmund(dataset_name,
                                                              with_edge_features=False,
                                                              standardize=True)
         labels, num_labels = dataset.read_graph_labels(dataset_name)
-        (x_train, y_train), (x_test, y_test) = train_test_split(graph_features, graph_adj, labels, split_ratio=0.2)
+        (x_train, y_train), (x_test, y_test) = utils.train_test_split(graph_features, graph_adj, labels, split_ratio=0.2)
         del graph_adj, graph_features, _, labels
-        model = kron.ConvolutionalCoarsenerNetwork(output_dim=num_labels, num_stages=1, num_features=256, activation='relu')
+        model = kron.ConvolutionalCoarsenerNetwork(output_dim=num_labels, num_stages=num_stages,
+                                                   num_features=num_features, activation=activation)
         optimizer = tf.keras.optimizers.Adam()
         for epoch in range(num_epochs):
             print('Epoch %d/%d'%(epoch+1, num_epochs))
-            train_single_epoch(x_train, y_train, model, optimizer)
+            train_single_epoch(x_train, y_train, model, optimizer, batch_size)
             evaluate(x_test, y_test, model)
             model.save_weights(os.path.join(dataset_name+'_weights', 'coarsener.h5'))
-            shuffle_dataset(x_train, y_train)
+            utils.shuffle_dataset(x_train, y_train)
             print('')
 
 
@@ -78,7 +65,7 @@ if __name__ == '__main__':
     parser.add_argument('task', help='Task to execute. Only %s are currently available.'%str(dataset.available_tasks()))
     args = parser.parse_args()
     if args.task in dataset.available_tasks():
-        train_classification(args.task, num_epochs=30)
+        train_classification(args.task, num_epochs=30, batch_size=1, num_stages=2, num_features=256, activation='relu')
     else:
         print('Unknown task %s'%args.task)
         parser.print_help()
