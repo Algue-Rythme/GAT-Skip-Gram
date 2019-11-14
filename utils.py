@@ -1,9 +1,9 @@
 import random
-import matplotlib as plt
 import numpy as np
 import tensorflow as tf
 try:
     import pygsp
+    import matplotlib as plt
     def plot_pyramid(A_pyramid, kind='spring'):
         graph = pygsp.graphs.Graph(A_pyramid[0])
         graph.set_coordinates(kind)
