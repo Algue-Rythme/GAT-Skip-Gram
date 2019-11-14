@@ -71,7 +71,7 @@ if __name__ == '__main__':
     parser.add_argument('--batch_size', type=int, default=8, help='Number of graphs in each batch')
     parser.add_argument('--num_stages', type=int, default=2, help='Number of GCN layers in a single coarsening')
     parser.add_argument('--num_features', type=int, default=256, help='Size of feature space')
-    parser.add_argument('--activation', default='activation', help='Activation function of GCN layers')
+    parser.add_argument('--activation', default='relu', help='Activation function of GCN layers')
     args = parser.parse_args()
     print(args)
     if args.task in dataset.available_tasks():
