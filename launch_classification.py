@@ -20,8 +20,8 @@ def train_single_epoch(x_train, y_train, model, optimizer, batch_size):
                 logits = model(x_train[sample])
                 loss = tf.nn.sparse_softmax_cross_entropy_with_logits(y_train[batch], logits)
                 acc_loss = loss if sample == batch else acc_loss + loss
-            acc_loss = acc_loss / tf.constant(max_batch - batch, dtype=tf.float32)
-            metric.update_state(y_train[batch], tf.nn.softmax(logits))
+                metric.update_state(y_train[batch], tf.nn.softmax(logits))
+                acc_loss = acc_loss / tf.constant(max_batch - batch, dtype=tf.float32)
         gradients = tape.gradient(acc_loss, model.trainable_variables)
         optimizer.apply_gradients(zip(gradients, model.trainable_variables))
         progbar.update(batch+batch_size, [('loss', float(loss.numpy().mean())), ('acc', metric.result().numpy())])
@@ -68,6 +68,7 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('task', help='Task to execute. Only %s are currently available.'%str(dataset.available_tasks()))
     args = parser.parse_args()
+    print(args)
     if args.task in dataset.available_tasks():
         train_classification(args.task, num_epochs=30, batch_size=1, num_stages=2, num_features=256, activation='relu')
     else:
