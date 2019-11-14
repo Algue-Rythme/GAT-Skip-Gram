@@ -2,7 +2,24 @@ import random
 import matplotlib as plt
 import numpy as np
 import tensorflow as tf
-import pygsp
+try:
+    import pygsp
+    def plot_pyramid(A_pyramid, kind='spring'):
+        graph = pygsp.graphs.Graph(A_pyramid[0])
+        graph.set_coordinates(kind)
+        coords = graph.coords
+        for adj, indices in A_pyramid[1:]:
+            signal = np.zeros(graph.N)
+            signal[indices] = 1.
+            pygsp.plotting.plot_signal(graph, signal)
+            graph = pygsp.graphs.Graph(adj)
+            coords = coords[indices,:]
+            graph.set_coordinates(coords)
+        pygsp.plotting.plot_graph(graph)
+        plt.pyplot.show()
+except ImportError:
+    def plot_pyramid(_A_pyramid, _kind='spring'):
+        pass
 
 
 def train_test_split(*lsts, **kwargs):
@@ -24,17 +41,3 @@ def shuffle_dataset(x_train, y_train):
     indices = list(range(len(y_train)))
     random.shuffle(indices)
     return [x_train[index] for index in indices], [y_train[index] for index in indices]
-
-def plot_pyramid(A_pyramid, kind='spring'):
-    graph = pygsp.graphs.Graph(A_pyramid[0])
-    graph.set_coordinates(kind)
-    coords = graph.coords
-    for adj, indices in A_pyramid[1:]:
-        signal = np.zeros(graph.N)
-        signal[indices] = 1.
-        pygsp.plotting.plot_signal(graph, signal)
-        graph = pygsp.graphs.Graph(adj)
-        coords = coords[indices,:]
-        graph.set_coordinates(coords)
-    pygsp.plotting.plot_graph(graph)
-    plt.pyplot.show()
