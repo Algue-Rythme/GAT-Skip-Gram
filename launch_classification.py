@@ -37,6 +37,10 @@ def evaluate(x_test, y_test, model):
         progbar.update(batch+1, [('loss', float(loss.numpy().mean())), ('acc', metric.result().numpy())])
 
 def train_classification(dataset_name, num_epochs, batch_size, num_stages, num_features, activation):
+    try:
+        os.mkdir(dataset_name+'_weights')
+    except FileExistsError:
+        pass
     with tf.device('/gpu:0'):
         graph_adj, graph_features, _ = dataset.read_dortmund(dataset_name,
                                                              with_edge_features=False,
