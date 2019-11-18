@@ -157,9 +157,16 @@ class GraphAttention(tf.keras.layers.Layer):
 
 class StackedGraphAttention(tf.keras.models.Model):
 
-    def __init__(self, num_gat_layers, num_heads, num_features):
+    def __init__(self, num_gat_layers, num_heads, num_features, last_layer_only):
         super(StackedGraphAttention, self).__init__()
+        self.num_layers = num_gat_layers
+        self.last_layer_only = last_layer_only
         self.ga_layers = [GraphAttention(num_features, num_heads, activation='elu') for _ in range(num_gat_layers)]
+
+    def vocab_size(self):
+        if self.last_layer_only:
+            return 1
+        return self.num_layers
 
     def call(self, inputs):
         x = inputs[0]
@@ -167,5 +174,8 @@ class StackedGraphAttention(tf.keras.models.Model):
         outputs = []
         for layer in self.ga_layers:
             x = layer((x, A))
+            if not self.last_layer_only:
+                outputs.append(x)
+        if self.last_layer_only:
             outputs.append(x)
         return outputs

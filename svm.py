@@ -24,7 +24,7 @@ def evaluate_embeddings(dataset_name, num_tests):
     with open(graph_embedder_filename, 'r') as f:
         embeddings_data = np.loadtxt(f, delimiter='\t').astype(np.float32)
     with open(labels_filename, 'r') as f:
-        labels_data, _ = np.loadtxt(f, ndmin=1)
+        labels_data = np.loadtxt(f, ndmin=1)
     accs = []
     progbar = tf.keras.utils.Progbar(num_tests)
     for test in range(num_tests):

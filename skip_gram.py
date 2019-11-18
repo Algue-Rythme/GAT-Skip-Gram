@@ -27,9 +27,10 @@ class GraphEmbedding(tf.keras.models.Model):
     def call(self, indices):
         return tf.stack(self.get_weights_from_indices(indices))
 
-def get_dense_batch(wl_embedder, graph_adj, graph_f, edge_f, max_depth, k):
+def get_dense_batch(wl_embedder, graph_adj, graph_f, edge_f, k):
+    vocab_size = wl_embedder.vocab_size()
     graph_indexes = random.sample(list(range(len(graph_adj))), k+1)
-    graph_lengths = [int(graph_adj[index].shape[0])*max_depth for index in graph_indexes]
+    graph_lengths = [int(graph_adj[index].shape[0])*vocab_size for index in graph_indexes]
     nodes_tensor = []
     labels = []
     for i, index in enumerate(graph_indexes):
@@ -50,15 +51,15 @@ def get_updated_metric(metric, labels, similarity, _):
 
 def train_epoch(wl_embedder, graph_embedder,
                 graph_adj, graph_f, edge_f,
-                max_depth, k, num_batchs, lbda):
-    optimizer_G = tf.keras.optimizers.Adam()
-    optimizer_WL = tf.keras.optimizers.Adam()
+                k, num_batchs, lbda, lr):
+    optimizer_G = tf.keras.optimizers.Adam(lr)
+    optimizer_WL = tf.keras.optimizers.Adam(lr)
     progbar = tf.keras.utils.Progbar(num_batchs)
     metric = tf.keras.metrics.BinaryAccuracy()
     for step in range(num_batchs):
         with tf.GradientTape() as tape:
             nodes_tensor, graph_indexes, labels = get_dense_batch(
-                wl_embedder, graph_adj, graph_f, edge_f, max_depth, k)
+                wl_embedder, graph_adj, graph_f, edge_f, k)
             graph_embeds = graph_embedder(graph_indexes)
             similarity = tf.einsum('if,jf->ij', graph_embeds, nodes_tensor)
             loss = tf.nn.weighted_cross_entropy_with_logits(labels, similarity, lbda*float(k))
