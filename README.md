@@ -13,7 +13,7 @@ Note: 'ENZYMES' contains 32 unconnected graphs.
 Usage:
 
 ```
-python3 launch_embeddings.py ENZYMES
+python3 launch_embeddings.py --task=ENZYMES
 ```
 
 It will create a folder 'ENZYMES_weights' with:
@@ -41,7 +41,7 @@ Then, using Skip Gram with graph embeddings as context embeddings, we generate e
 Instead of training raw embeddings, the embeddings are now function of the node features, and the fixed size representation is obtained via coarsening of the initial graph. Kron reduction is used thanks to its capacity to preserve the spectral properties of the graph.
 
 ```
-python3 launch_classification.py ENZYMES
+python3 launch_classification.py --task=ENZYMES
 ```
 
 ## Future work

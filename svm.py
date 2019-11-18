@@ -33,7 +33,7 @@ def evaluate_embeddings(dataset_name, num_tests):
         progbar.update(test+1, [('acc', acc*100.)])
     acc_avg = tf.math.reduce_mean(accs)
     acc_std = tf.math.reduce_std(accs)
-    print('Accuracy: %.2f+-%.2f%%'%(acc_avg*100., acc_std*100.))
+    return acc_avg, acc_std
 
 
 if __name__ == '__main__':
@@ -44,7 +44,8 @@ if __name__ == '__main__':
     parser.add_argument('task', help='Task to execute. Only %s are currently available.'%str(dataset.available_tasks()))
     args = parser.parse_args()
     if args.task in dataset.available_tasks():
-        evaluate_embeddings(args.task, num_tests=100)
+        acc_avg_g, acc_std_g = evaluate_embeddings(args.task, num_tests=100)
+        print('Accuracy: %.2f+-%.2f%%'%(acc_avg_g*100., acc_std_g*100.))
     else:
         print('Unknown task %s'%args.task)
         parser.print_help()
