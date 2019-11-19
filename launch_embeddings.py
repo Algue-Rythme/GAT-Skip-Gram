@@ -8,6 +8,7 @@ import skip_gram
 import gat
 import gcn
 import svm
+import utils
 
 
 def get_weight_filenames(dataset_name):
@@ -63,23 +64,18 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--task', help='Task to execute. Only %s are currently available.'%str(dataset.available_tasks()))
     parser.add_argument('--extractor',default='gcn', help='Wesfeiler Lehman extractor. \'gcn\' or \'gat\'')
-    parser.add_argument('--max_depth', type=int, default=3, help='Depth of extractor.')
+    parser.add_argument('--max_depth', type=int, default=4, help='Depth of extractor.')
     parser.add_argument('--num_features', type=int, default=1024, help='Size of feature space')
     parser.add_argument('--k', type=int, default=1, help='Ratio between positive and negative samples')
     parser.add_argument('--num_epochs', type=int, default=100, help='Number of epochs')
-    parser.add_argument('--lbda', type=float, default=1., help='Weight for positive samples')
+    parser.add_argument('--lbda', type=float, default=4., help='Weight for positive samples')
     args = parser.parse_args()
     if args.task in dataset.available_tasks():
         train_embeddings(args.task, args.extractor,
                          args.max_depth, args.num_features, args.k,
-                         args.num_epochs, args.lbda, train_wl=True, last_layer_only=True)
+                         args.num_epochs, args.lbda, train_wl=True, last_layer_only=False)
         acc, std = svm.evaluate_embeddings(args.task, num_tests=100)
-        experiments_filename = os.path.join(args.task+'_weights', 'experiments.txt')
-        args_dict = vars(args)
-        args_formatted = ' '.join([key+'='+str(args_dict[key]) for key in sorted(args_dict.keys())])
-        acc_formatted = (' acc=%.2f' % (acc*100)) + (' std=%.2f' % (std*100))
-        with open(experiments_filename, 'a') as experiments_file:
-            experiments_file.write(args_formatted + acc_formatted + '\n')
+        utils.record_args(args.task, args, acc, std)
     else:
         print('Unknown task %s'%args.task)
         parser.print_help()

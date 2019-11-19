@@ -30,11 +30,15 @@ def evaluate(x_test, y_test, model):
     num_graphs = len(y_test)
     progbar = tf.keras.utils.Progbar(num_graphs)
     metric = tf.keras.metrics.SparseCategoricalAccuracy()
+    accs = []
     for batch in range(num_graphs):
         logits = model(x_test[batch])
         loss = tf.nn.sparse_softmax_cross_entropy_with_logits(y_test[batch], logits)
         metric.update_state(y_test[batch], tf.nn.softmax(logits))
-        progbar.update(batch+1, [('loss', float(loss.numpy().mean())), ('acc', metric.result().numpy())])
+        acc_avg = metric.result().numpy()
+        accs.append(acc_avg)
+        progbar.update(batch+1, [('loss', float(loss.numpy().mean())), ('acc', acc_avg)])
+    return tf.math.reduce_mean(accs), tf.math.reduce_std(accs)
 
 def train_classification(dataset_name, num_epochs, batch_size, num_stages, num_features, activation):
     try:
@@ -51,13 +55,15 @@ def train_classification(dataset_name, num_epochs, batch_size, num_stages, num_f
         model = kron.ConvolutionalCoarsenerNetwork(output_dim=num_labels, num_stages=num_stages,
                                                    num_features=num_features, activation=activation)
         optimizer = tf.keras.optimizers.Adam()
+        acc_avg, acc_std = 0., 0.
         for epoch in range(num_epochs):
             print('Epoch %d/%d'%(epoch+1, num_epochs))
             train_single_epoch(x_train, y_train, model, optimizer, batch_size)
-            evaluate(x_test, y_test, model)
+            acc_avg, acc_std = evaluate(x_test, y_test, model)
             model.save_weights(os.path.join(dataset_name+'_weights', 'coarsener.h5'))
             utils.shuffle_dataset(x_train, y_train)
             print('')
+        return acc_avg, acc_std
 
 
 if __name__ == '__main__':
@@ -75,8 +81,9 @@ if __name__ == '__main__':
     args = parser.parse_args()
     print(args)
     if args.task in dataset.available_tasks():
-        train_classification(args.task, args.num_epochs, args.batch_size,
-                             args.num_stages, args.num_features, args.activation)
+        acc, std = train_classification(args.task, args.num_epochs, args.batch_size,
+                                        args.num_stages, args.num_features, args.activation)
+        utils.record_args(args.task, args, acc, std)
     else:
         print('Unknown task %s'%args.task)
         parser.print_help()
