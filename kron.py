@@ -73,6 +73,18 @@ class ConvolutionalCoarsenerNetwork(tf.keras.models.Model):
         self.coarsener = KronCoarsening()
         self.fc_out = tf.keras.layers.Dense(output_dim, activation='linear')
 
+    def get_embeddings_from_indices(self, inputs, indices):
+        return [self([input[index] for input in inputs]) for index in indices]
+
+    def get_weights_from_indices(self, _):
+        return self.trainable_variables
+
+    def dump_to_csv(self, csv_file, inputs):
+        with open(csv_file, 'w') as f:
+            for graph_input in zip(*inputs):
+                embed = tf.squeeze(self(graph_input))
+                f.write('\t'.join(map(str, embed.numpy().tolist()))+'\n')
+
     def call(self, inputs):
         try:
             X, A = inputs

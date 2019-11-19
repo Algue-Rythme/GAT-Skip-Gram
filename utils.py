@@ -43,10 +43,13 @@ def shuffle_dataset(x_train, y_train):
     random.shuffle(indices)
     return [x_train[index] for index in indices], [y_train[index] for index in indices]
 
+def str_from_args(args):
+    args_dict = vars(args)
+    return ' '.join([key+'='+str(args_dict[key]) for key in sorted(args_dict.keys())])
+
 def record_args(dataset_name, args, acc_avg, acc_std):
     experiments_filename = os.path.join(dataset_name+'_weights', 'experiments.txt')
-    args_dict = vars(args)
-    args_formatted = ' '.join([key+'='+str(args_dict[key]) for key in sorted(args_dict.keys())])
+    args_formatted = str_from_args(args)
     acc_formatted = (' acc=%.2f' % (acc_avg*100)) + (' std=%.2f' % (acc_std*100))
     with open(experiments_filename, 'a') as experiments_file:
         experiments_file.write(args_formatted + acc_formatted + '\n')

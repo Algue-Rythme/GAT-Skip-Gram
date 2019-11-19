@@ -16,10 +16,13 @@ class GraphEmbedding(tf.keras.models.Model):
     def get_numpy(self):
         return np.array([embed.numpy() for embed in self.embeds])
 
-    def dump_to_csv(self, csv_file):
+    def dump_to_csv(self, csv_file, _):
         with open(csv_file, 'w') as f:
             for embed in self.embeds:
                 f.write('\t'.join(map(str, embed.numpy().tolist()))+'\n')
+
+    def get_embeddings_from_indices(self, _, indices):
+        return self.get_weights_from_indices(indices)
 
     def get_weights_from_indices(self, indices):
         return [self.embeds[index] for index in indices]
@@ -27,7 +30,7 @@ class GraphEmbedding(tf.keras.models.Model):
     def call(self, indices):
         return tf.stack(self.get_weights_from_indices(indices))
 
-def get_dense_batch(wl_embedder, graph_adj, graph_f, edge_f, k):
+def get_dense_batch(wl_embedder, graph_f, graph_adj, edge_f, k):
     vocab_size = wl_embedder.vocab_size()
     graph_indexes = random.sample(list(range(len(graph_adj))), k+1)
     graph_lengths = [int(graph_adj[index].shape[0])*vocab_size for index in graph_indexes]
@@ -50,7 +53,7 @@ def get_updated_metric(metric, labels, similarity, _):
     return metric.result().numpy()
 
 def train_epoch(wl_embedder, graph_embedder,
-                graph_adj, graph_f, edge_f,
+                graph_f, graph_adj, edge_f,
                 k, num_batchs, lbda, lr):
     optimizer_G = tf.keras.optimizers.Adam(lr)
     optimizer_WL = tf.keras.optimizers.Adam(lr)
@@ -59,8 +62,9 @@ def train_epoch(wl_embedder, graph_embedder,
     for step in range(num_batchs):
         with tf.GradientTape() as tape:
             nodes_tensor, graph_indexes, labels = get_dense_batch(
-                wl_embedder, graph_adj, graph_f, edge_f, k)
-            graph_embeds = graph_embedder(graph_indexes)
+                wl_embedder, graph_f, graph_adj, edge_f, k)
+            graph_embeds = graph_embedder.get_embeddings_from_indices((graph_f, graph_adj), graph_indexes)
+            graph_embeds = tf.stack(graph_embeds)
             similarity = tf.einsum('if,jf->ij', graph_embeds, nodes_tensor)
             loss = tf.nn.weighted_cross_entropy_with_logits(labels, similarity, lbda*float(k))
         G_weights = graph_embedder.get_weights_from_indices(graph_indexes)

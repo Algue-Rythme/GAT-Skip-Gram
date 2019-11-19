@@ -79,7 +79,7 @@ if __name__ == '__main__':
     parser.add_argument('--num_features', type=int, default=256, help='Size of feature space')
     parser.add_argument('--activation', default='relu', help='Activation function of GCN layers')
     args = parser.parse_args()
-    print(args)
+    print(utils.str_from_args(args))
     if args.task in dataset.available_tasks():
         acc, std = train_classification(args.task, args.num_epochs, args.batch_size,
                                         args.num_stages, args.num_features, args.activation)
