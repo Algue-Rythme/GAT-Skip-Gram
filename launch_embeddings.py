@@ -83,7 +83,6 @@ if __name__ == '__main__':
     parser.add_argument('--k', type=int, default=1, help='Ratio between positive and negative samples')
     parser.add_argument('--num_epochs', type=int, default=100, help='Number of epochs')
     parser.add_argument('--lbda', type=float, default=1., help='Weight for positive samples')
-    parser.add_argument('--train_wl', type=bool, default=True, help='Whether to train the WL extractor.')
     parser.add_argument('--last_layer_only', type=bool, default=False, help='Use only vocabulary of biggest radius.')
     args = parser.parse_args()
     print(utils.str_from_args(args))
