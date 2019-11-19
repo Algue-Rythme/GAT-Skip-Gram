@@ -57,7 +57,7 @@ def train_embeddings(dataset_name, wl_extractor, embedder_extractor,
     num_batchs = num_graphs
     for epoch in range(num_epochs):
         print('epoch %d/%d'%(epoch+1, num_epochs))
-        lr = np.math.pow(1.1, -0.5 * epoch) * 0.02
+        lr = 0.002 * np.math.pow(1.1, - 50.*(epoch / num_epochs))
         skip_gram.train_epoch(
             wl_embedder, graph_embedder,
             graph_features, graph_adj, edge_features,
@@ -82,7 +82,7 @@ if __name__ == '__main__':
     parser.add_argument('--num_features', type=int, default=1024, help='Size of feature space')
     parser.add_argument('--k', type=int, default=1, help='Ratio between positive and negative samples')
     parser.add_argument('--num_epochs', type=int, default=100, help='Number of epochs')
-    parser.add_argument('--lbda', type=float, default=4., help='Weight for positive samples')
+    parser.add_argument('--lbda', type=float, default=1., help='Weight for positive samples')
     parser.add_argument('--train_wl', type=bool, default=True, help='Whether to train the WL extractor.')
     parser.add_argument('--last_layer_only', type=bool, default=False, help='Use only vocabulary of biggest radius.')
     args = parser.parse_args()
