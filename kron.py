@@ -62,10 +62,10 @@ class KronCoarsening(tf.keras.layers.Layer):
         A_reduced = kron_reduction(L, major, minor)
         return X_reduced, A_reduced, major
 
-class ConvolutionalCoarsenerNetwork(tf.keras.models.Model):
+class ConvolutionalKronCoarsener(tf.keras.models.Model):
 
     def __init__(self, output_dim, num_stages, num_features, activation):
-        super(ConvolutionalCoarsenerNetwork, self).__init__()
+        super(ConvolutionalKronCoarsener, self).__init__()
         self.output_dim = output_dim
         self.fc_in = tf.keras.layers.Dense(num_features, activation='relu')
         self.blocks = [gcn.GraphConvolution(num_features, auto_normalize=True, activation=activation)

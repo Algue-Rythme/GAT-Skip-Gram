@@ -44,6 +44,7 @@ Instead of training raw embeddings, the embeddings are now function of the node 
 python3 launch_classification.py --task=ENZYMES
 ```
 
-## Future work
+# Thanks
 
-Improve aggregation of disconnected components with Kron.  
+The `loukas_coarsening` folder is copied from https://github.com/loukasa/graph-coarsening with only slight modifications.  
+Hence, my work is redistributed under the same license.    

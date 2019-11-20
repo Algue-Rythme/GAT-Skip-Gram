@@ -52,8 +52,8 @@ def train_classification(dataset_name, num_epochs, batch_size, num_stages, num_f
         labels, num_labels = dataset.read_graph_labels(dataset_name)
         (x_train, y_train), (x_test, y_test) = utils.train_test_split(graph_features, graph_adj, labels, split_ratio=0.2)
         del graph_adj, graph_features, _, labels
-        model = kron.ConvolutionalCoarsenerNetwork(output_dim=num_labels, num_stages=num_stages,
-                                                   num_features=num_features, activation=activation)
+        model = kron.ConvolutionalKronCoarsener(output_dim=num_labels, num_stages=num_stages,
+                                                num_features=num_features, activation=activation)
         optimizer = tf.keras.optimizers.Adam()
         acc_avg, acc_std = 0., 0.
         for epoch in range(num_epochs):

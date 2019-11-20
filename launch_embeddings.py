@@ -8,6 +8,7 @@ import skip_gram
 import gat
 import gcn
 import kron
+import loukas
 import svm
 import utils
 
@@ -41,8 +42,11 @@ def get_graph_embedder_extractor(embedder_extractor, num_graphs, num_features):
     if embedder_extractor == 'raw_embedding':
         return skip_gram.GraphEmbedding(num_graphs, num_features)
     elif embedder_extractor == 'kron':
-        return kron.ConvolutionalCoarsenerNetwork(output_dim=num_features, num_stages=2,
-                                                  num_features=num_features, activation='relu')
+        return kron.ConvolutionalKronCoarsener(output_dim=num_features, num_stages=2,
+                                               num_features=num_features, activation='relu')
+    elif embedder_extractor == 'loukas':
+        return loukas.ConvolutionalLoukasCoarsener(output_dim=num_features, num_stages=2,
+                                                   num_features=num_features, method='variation_neighborhood')
     raise ValueError
 
 def train_embeddings(dataset_name, wl_extractor, embedder_extractor,
@@ -77,7 +81,7 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--task', help='Task to execute. Only %s are currently available.'%str(dataset.available_tasks()))
     parser.add_argument('--wl_extractor', default='gcn', help='Wesfeiler Lehman extractor. \'gcn\', \'gat\' or \'random_matrix\'')
-    parser.add_argument('--embedder_extractor', default='raw_embedding', help='Extractor of graph embeddings. \'raw_embedding\' or \'kron\'')
+    parser.add_argument('--embedder_extractor', default='raw_embedding', help='Extractor of graph embeddings. \'raw_embedding\', \'kron\' or \'loukas\'')
     parser.add_argument('--max_depth', type=int, default=4, help='Depth of extractor.')
     parser.add_argument('--num_features', type=int, default=1024, help='Size of feature space')
     parser.add_argument('--k', type=int, default=1, help='Ratio between positive and negative samples')
