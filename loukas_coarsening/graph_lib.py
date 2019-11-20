@@ -2,7 +2,7 @@ import os
 import numpy as np
 import scipy as sp
 from pygsp import graphs
-import graph_utils
+import loukas_coarsening.graph_utils as graph_utils
 
 def real(N, graph_name, connected=True):
     r"""

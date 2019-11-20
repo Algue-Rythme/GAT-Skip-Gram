@@ -4,9 +4,23 @@ import random
 import numpy as np
 import tensorflow as tf
 import dataset
+import loukas
 import kron
 import utils
 
+
+def get_graph_coarsener(coarsener, output_dim, num_stages, num_features):
+    if coarsener == 'kron':
+        model = kron.ConvolutionalKronCoarsener(output_dim=output_dim, num_stages=num_stages,
+                                                num_features=num_features, activation='relu')
+        return model
+    elif coarsener == 'loukas':
+        model = loukas.ConvolutionalLoukasCoarsener(output_dim=output_dim, num_stages=num_stages,
+                                                    num_features=num_features,
+                                                    coarsening_method='variation_neighborhood',
+                                                    pooling_method='mean')
+        return model
+    raise ValueError
 
 def train_single_epoch(x_train, y_train, model, optimizer, batch_size):
     num_graphs = len(y_train)
@@ -24,7 +38,7 @@ def train_single_epoch(x_train, y_train, model, optimizer, batch_size):
             acc_loss = acc_loss / tf.constant(max_batch - batch, dtype=tf.float32)
         gradients = tape.gradient(acc_loss, model.trainable_variables)
         optimizer.apply_gradients(zip(gradients, model.trainable_variables))
-        progbar.update(batch+batch_size, [('loss', float(loss.numpy().mean())), ('acc', metric.result().numpy())])
+        progbar.update(max_batch, [('loss', float(loss.numpy().mean())), ('acc', metric.result().numpy())])
 
 def evaluate(x_test, y_test, model):
     num_graphs = len(y_test)
@@ -40,7 +54,7 @@ def evaluate(x_test, y_test, model):
         progbar.update(batch+1, [('loss', float(loss.numpy().mean())), ('acc', acc_avg)])
     return tf.math.reduce_mean(accs), tf.math.reduce_std(accs)
 
-def train_classification(dataset_name, num_epochs, batch_size, num_stages, num_features, activation):
+def train_classification(dataset_name, coarsener, num_epochs, batch_size, num_stages, num_features):
     try:
         os.mkdir(dataset_name+'_weights')
     except FileExistsError:
@@ -52,8 +66,7 @@ def train_classification(dataset_name, num_epochs, batch_size, num_stages, num_f
         labels, num_labels = dataset.read_graph_labels(dataset_name)
         (x_train, y_train), (x_test, y_test) = utils.train_test_split(graph_features, graph_adj, labels, split_ratio=0.2)
         del graph_adj, graph_features, _, labels
-        model = kron.ConvolutionalKronCoarsener(output_dim=num_labels, num_stages=num_stages,
-                                                num_features=num_features, activation=activation)
+        model = get_graph_coarsener(coarsener, output_dim=num_labels, num_stages=num_stages, num_features=num_features)
         optimizer = tf.keras.optimizers.Adam()
         acc_avg, acc_std = 0., 0.
         for epoch in range(num_epochs):
@@ -73,16 +86,16 @@ if __name__ == '__main__':
     tf.random.set_seed(seed + 146)
     parser = argparse.ArgumentParser()
     parser.add_argument('--task', help='Task to execute. Only %s are currently available.'%str(dataset.available_tasks()))
+    parser.add_argument('--coarsener', default='loukas', help='Graph coarsener. \'kron\' or \'loukas\'')
     parser.add_argument('--num_epochs', type=int, default=100, help='Number of epochs')
     parser.add_argument('--batch_size', type=int, default=8, help='Number of graphs in each batch')
     parser.add_argument('--num_stages', type=int, default=2, help='Number of GCN layers in a single coarsening')
     parser.add_argument('--num_features', type=int, default=256, help='Size of feature space')
-    parser.add_argument('--activation', default='relu', help='Activation function of GCN layers')
     args = parser.parse_args()
     print(utils.str_from_args(args))
     if args.task in dataset.available_tasks():
-        acc, std = train_classification(args.task, args.num_epochs, args.batch_size,
-                                        args.num_stages, args.num_features, args.activation)
+        acc, std = train_classification(args.task, args.coarsener, args.num_epochs,
+                                        args.batch_size, args.num_stages, args.num_features)
         utils.record_args(args.task, args, acc, std)
     else:
         print('Unknown task %s'%args.task)

@@ -7,8 +7,8 @@ import matplotlib
 import matplotlib.pylab as plt
 from sortedcontainers import SortedList
 from mpl_toolkits.mplot3d import Axes3D
-from maxWeightMatching import maxWeightMatching
-import graph_utils
+from loukas_coarsening.maxWeightMatching import maxWeightMatching
+import loukas_coarsening.graph_utils as graph_utils
 
 
 def coarsen(G, K=10, r=0.5, max_levels=20, method='variation_edges', algorithm='greedy', Uk=None, lk=None, max_level_r=0.99):
@@ -39,11 +39,11 @@ def coarsen(G, K=10, r=0.5, max_levels=20, method='variation_edges', algorithm='
     C, Gc, Call, Gall = coarsen(G, K=10, r=0.8)
     """
     r = np.clip(r, 0, 0.999)
-    G0 = G
     N = G.N
 
-    # current and target graph sizes
-    n, n_target = N, np.ceil((1-r)*N)
+    #TODO(lbethune): fix this heuristic
+    K = max(1, min(K, N // 2))
+    n, n_target = N, max(2, np.ceil((1-r)*N))
 
     C = sp.sparse.eye(N, format='csc')
     Gc = G
@@ -77,7 +77,10 @@ def coarsen(G, K=10, r=0.5, max_levels=20, method='variation_edges', algorithm='
             else:
                 B = iC.dot(B)
                 d, V = np.linalg.eig(B.T @ (G.L).dot(B))
-                mask = (d==0); d[mask] = 1; dinvsqrt = d**(-1/2); dinvsqrt[mask] = 0
+                mask = np.isclose(d, np.zeros(shape=d.shape))
+                d[mask] = 1
+                dinvsqrt = d**(-1/2)
+                dinvsqrt[mask] = 0
                 A = B @ np.diag(dinvsqrt) @ V
 
             if method == 'variation_edges':
@@ -423,9 +426,12 @@ def contract_variation_linear(G, A=None, K=10, r=0.5, mode='neighborhood'):
     # Normally, A should be passed as an argument.
     if A is None:
         lk, Uk = sp.sparse.linalg.eigsh(G.L, k=K, which='SM', tol=1e-3) # this is not optimized!
-        lk[0] = 1; lsinv = lk**(-0.5); lsinv[0] = 0; lk[0] = 0
+        lk[0] = 1
+        lsinv = lk**(-0.5)
+        lsinv[0] = 0
+        lk[0] = 0
         D_lsinv = np.diag(lsinv)
-        A = Uk @ np.diag(lsinv)
+        A = Uk @ D_lsinv
 
     # cost function for the subgraph induced by nodes array
     def subgraph_cost(nodes):
@@ -434,7 +440,8 @@ def contract_variation_linear(G, A=None, K=10, r=0.5, mode='neighborhood'):
         W = W_lil[nodes,:][:,nodes]#.tocsc()
         L = np.diag(2*deg[nodes] - W.dot(ones)) - W
         B = (np.eye(nc) - np.outer(ones, ones) / nc ) @ A[nodes,:]
-        return np.linalg.norm(B.T @ L @ B)/(nc-1)
+        unnormalized_cost = np.linalg.norm(B.T @ L @ B)
+        return unnormalized_cost / (nc-1) if nc != 1 else 0.
 
     class CandidateSet:
         def __init__(self, candidate_list):

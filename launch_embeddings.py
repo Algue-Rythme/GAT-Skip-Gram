@@ -46,7 +46,9 @@ def get_graph_embedder_extractor(embedder_extractor, num_graphs, num_features):
                                                num_features=num_features, activation='relu')
     elif embedder_extractor == 'loukas':
         return loukas.ConvolutionalLoukasCoarsener(output_dim=num_features, num_stages=2,
-                                                   num_features=num_features, method='variation_neighborhood')
+                                                   num_features=num_features,
+                                                   coarsening_method='variation_neighborhood',
+                                                   pooling_method='mean')
     raise ValueError
 
 def train_embeddings(dataset_name, wl_extractor, embedder_extractor,
