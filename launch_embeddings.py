@@ -48,7 +48,7 @@ def get_graph_embedder_extractor(embedder_extractor, num_graphs, num_features):
         return loukas.ConvolutionalLoukasCoarsener(output_dim=num_features, num_stages=2,
                                                    num_features=num_features,
                                                    coarsening_method='variation_neighborhood',
-                                                   pooling_method='mean')
+                                                   pooling_method='mean', block_layer='gcn')
     raise ValueError
 
 def train_embeddings(dataset_name, wl_extractor, embedder_extractor,
@@ -73,6 +73,7 @@ def train_embeddings(dataset_name, wl_extractor, embedder_extractor,
         graph_embedder.dump_to_csv(csv_file, (graph_features, graph_adj))
         acc_avg, acc_std = svm.evaluate_embeddings(dataset_name, num_tests=10)
         print('Accuracy: %.2f+-%.2f%%'%(acc_avg*100., acc_std*100.))
+        print('')
 
 
 if __name__ == '__main__':

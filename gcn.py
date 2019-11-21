@@ -105,7 +105,7 @@ class StackedGraphConvolution(tf.keras.models.Model):
         super(StackedGraphConvolution, self).__init__()
         self.num_layers = num_layers
         self.last_layer_only = last_layer_only
-        self.ga_layers = [GraphConvolution(num_features, activation='relu') for _ in range(num_layers)]
+        self.ga_layers = [GraphConvolution(num_features, activation='sigmoid') for _ in range(num_layers)]
 
     def vocab_size(self):
         if self.last_layer_only:

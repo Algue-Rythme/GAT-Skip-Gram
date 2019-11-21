@@ -18,27 +18,26 @@ def get_graph_coarsener(coarsener, output_dim, num_stages, num_features):
         model = loukas.ConvolutionalLoukasCoarsener(output_dim=output_dim, num_stages=num_stages,
                                                     num_features=num_features,
                                                     coarsening_method='variation_neighborhood',
-                                                    pooling_method='mean')
+                                                    pooling_method='max', block_layer='gcn')
         return model
     raise ValueError
 
 def train_single_epoch(x_train, y_train, model, optimizer, batch_size):
     num_graphs = len(y_train)
     progbar = tf.keras.utils.Progbar(num_graphs)
-    metric = tf.keras.metrics.SparseCategoricalAccuracy()
     for batch in range(0, num_graphs, batch_size):
         acc_loss = None
         with tf.GradientTape() as tape:
             max_batch = min(batch+batch_size, num_graphs)
             for sample in range(batch, max_batch):
-                logits = model(x_train[sample])
+                logits, infos = model(x_train[sample])
                 loss = tf.nn.sparse_softmax_cross_entropy_with_logits(y_train[batch], logits)
                 acc_loss = loss if sample == batch else acc_loss + loss
-                metric.update_state(y_train[batch], tf.nn.softmax(logits))
+                accuracy = (y_train[batch] == float(tf.math.argmax(tf.nn.softmax(logits)).numpy()))
+                progbar.update(sample+1, [('loss', float(loss.numpy().mean())), ('acc', accuracy)] + list(infos.items()))
             acc_loss = acc_loss / tf.constant(max_batch - batch, dtype=tf.float32)
         gradients = tape.gradient(acc_loss, model.trainable_variables)
         optimizer.apply_gradients(zip(gradients, model.trainable_variables))
-        progbar.update(max_batch, [('loss', float(loss.numpy().mean())), ('acc', metric.result().numpy())])
 
 def evaluate(x_test, y_test, model):
     num_graphs = len(y_test)
@@ -46,12 +45,12 @@ def evaluate(x_test, y_test, model):
     metric = tf.keras.metrics.SparseCategoricalAccuracy()
     accs = []
     for batch in range(num_graphs):
-        logits = model(x_test[batch])
+        logits, infos = model(x_test[batch])
         loss = tf.nn.sparse_softmax_cross_entropy_with_logits(y_test[batch], logits)
         metric.update_state(y_test[batch], tf.nn.softmax(logits))
         acc_avg = metric.result().numpy()
         accs.append(acc_avg)
-        progbar.update(batch+1, [('loss', float(loss.numpy().mean())), ('acc', acc_avg)])
+        progbar.update(batch+1, [('loss', float(loss.numpy().mean())), ('acc', acc_avg)] + list(infos.items()))
     return tf.math.reduce_mean(accs), tf.math.reduce_std(accs)
 
 def train_classification(dataset_name, coarsener, num_epochs, batch_size, num_stages, num_features):

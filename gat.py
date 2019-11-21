@@ -149,7 +149,7 @@ class GraphAttention(tf.keras.layers.Layer):
         if self.attn_heads_reduction == 'concat':
             output = tf.concat(outputs, axis=1)  # (N x KF')
         else:
-            output = tf.mean(tf.stack(outputs, axis=0), axis=0)  # (N x F')
+            output = tf.math.reduce_mean(tf.stack(outputs, axis=0), axis=0)  # (N x F')
 
         output = self.activation(output)
         return output
