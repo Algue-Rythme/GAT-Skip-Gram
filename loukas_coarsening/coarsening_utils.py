@@ -1,14 +1,18 @@
+import warnings
 import numpy as np
 import pygsp as gsp
 from pygsp import graphs, filters, reduction
 import scipy as sp
 from scipy import sparse
-import matplotlib
-import matplotlib.pylab as plt
 from sortedcontainers import SortedList
-from mpl_toolkits.mplot3d import Axes3D
 from loukas_coarsening.maxWeightMatching import maxWeightMatching
 import loukas_coarsening.graph_utils as graph_utils
+try:
+    import matplotlib
+    import matplotlib.pylab as plt
+    from mpl_toolkits.mplot3d import Axes3D
+except ImportError:
+    warnings.warn('Warning: plotting functions unavailable')
 
 
 def coarsen(G, K=10, r=0.5, max_levels=20, method='variation_edges', algorithm='greedy', Uk=None, lk=None, max_level_r=0.99):

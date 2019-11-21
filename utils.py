@@ -1,5 +1,6 @@
 import os
 import random
+import warnings
 import numpy as np
 import tensorflow as tf
 try:
@@ -19,6 +20,7 @@ try:
         pygsp.plotting.plot_graph(graph)
         plt.pyplot.show()
 except ImportError:
+    warnings.warn('Unsupported pygsp or matplotlib')
     def plot_pyramid(_A_pyramid, _kind='spring'):
         pass
 

@@ -1,4 +1,6 @@
+import warnings
 import numpy as np
+import scipy
 import tensorflow as tf
 from pygsp import graphs
 import loukas_coarsening.coarsening_utils as loukas
@@ -59,11 +61,22 @@ class ConvolutionalLoukasCoarsener(tf.keras.models.Model):
             X = self.pooling(coarsening_matrix, X)
         return X, A_reduced
 
+    def attempt_coarsening(self, A):
+        G = graphs.Graph(A.numpy())
+        attempt = 1
+        while attempt > 0:
+            try:
+                _, _, Call, Gall = loukas.coarsen(G, K=self.k, r=self.r, method=self.coarsening_method)
+                attempt = 0
+            except scipy.sparse.linalg.ArpackError as e:
+                warnings.warn('attempt %d: '%attempt+str(e))
+                attempt = 1
+        Call.append(None)
+        return Call, Gall
+
     def call(self, inputs):
         X, A = inputs
-        G = graphs.Graph(A.numpy())
-        _, _, Call, Gall = loukas.coarsen(G, K=self.k, r=self.r, method=self.coarsening_method)
-        Call.append(None)
+        Call, Gall = self.attempt_coarsening(A)
         X = self.fc_in(X)
         assert len(Call) == len(Gall) and Gall
         for coarsening_matrix, G_reduced in zip(Call, Gall):
