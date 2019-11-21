@@ -18,7 +18,7 @@ def get_graph_coarsener(coarsener, output_dim, num_stages, num_features):
         model = loukas.ConvolutionalLoukasCoarsener(output_dim=output_dim, num_stages=num_stages,
                                                     num_features=num_features,
                                                     coarsening_method='variation_neighborhood',
-                                                    pooling_method='max', block_layer='gcn')
+                                                    pooling_method='sum', block_layer='gcn')
         return model
     raise ValueError
 
@@ -66,7 +66,7 @@ def train_classification(dataset_name, coarsener, num_epochs, batch_size, num_st
         (x_train, y_train), (x_test, y_test) = utils.train_test_split(graph_features, graph_adj, labels, split_ratio=0.2)
         del graph_adj, graph_features, _, labels
         model = get_graph_coarsener(coarsener, output_dim=num_labels, num_stages=num_stages, num_features=num_features)
-        optimizer = tf.keras.optimizers.Adam()
+        optimizer = tf.keras.optimizers.Adam()  # TODO: tune learning rate
         acc_avg, acc_std = 0., 0.
         for epoch in range(num_epochs):
             print('Epoch %d/%d'%(epoch+1, num_epochs))

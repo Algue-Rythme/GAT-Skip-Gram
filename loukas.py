@@ -46,6 +46,12 @@ class ConvolutionalLoukasCoarsener(tf.keras.models.Model):
         coarsening_matrix = tf.constant(coarsening_matrix.todense(), dtype=tf.float32)
         if self.pooling_method == 'mean':
             return coarsening_matrix @ X
+        elif self.pooling_method == 'sum':
+            X = coarsening_matrix @ X
+            mask = tf.not_equal(coarsening_matrix, tf.constant(0., dtype=tf.float32))
+            indicator = tf.dtypes.cast(mask, tf.float32)
+            X = X * tf.reduce_sum(indicator, axis=-1, keepdims=True)
+            return X
         elif self.pooling_method == 'max':
             X = tf.einsum('nm,mf->nmf', coarsening_matrix, X)
             X = tf.math.reduce_max(X, axis=-2)
@@ -70,7 +76,7 @@ class ConvolutionalLoukasCoarsener(tf.keras.models.Model):
                 attempt = 0
             except scipy.sparse.linalg.ArpackError as e:
                 warnings.warn('attempt %d: '%attempt+str(e))
-                attempt = 1
+                attempt += 1
         Call.append(None)
         return Call, Gall
 

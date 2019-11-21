@@ -97,7 +97,7 @@ if __name__ == '__main__':
         train_embeddings(args.task, args.wl_extractor, args.embedder_extractor,
                          args.max_depth, args.num_features, args.k,
                          args.num_epochs, args.lbda, args.last_layer_only)
-        acc, std = svm.evaluate_embeddings(args.task, num_tests=100)
+        acc, std = svm.evaluate_embeddings(args.task, num_tests=60)
         utils.record_args(args.task, args, acc, std)
     else:
         print('Unknown task %s'%args.task)

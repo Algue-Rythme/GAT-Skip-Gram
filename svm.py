@@ -3,18 +3,25 @@ import os
 import random
 import numpy as np
 from sklearn import svm
+from sklearn.neighbors import KNeighborsClassifier
+from sklearn.ensemble import AdaBoostClassifier
 from sklearn.metrics import accuracy_score
 from sklearn.model_selection import train_test_split
 import tensorflow as tf
 import dataset
 
 
-def learn_embeddings(embeddings, labels, ratio):
+def learn_embeddings(embeddings, labels, ratio, kernel):
     test_size = int(labels.shape[0] * ratio)
     x_train, x_test, y_train, y_test = train_test_split(embeddings, labels, test_size=test_size, shuffle=True)
-    clf = svm.SVC(gamma='scale')
-    clf.fit(x_train, y_train)
-    y_pred = clf.predict(x_test)
+    if kernel[:3] == 'knn':
+        model = KNeighborsClassifier(n_neighbors=int(kernel[3:]))
+    elif kernel == 'adaboost':
+        model = AdaBoostClassifier(n_estimators=100)
+    elif kernel[:4] == 'svm-':
+        model = svm.SVC(gamma='scale', kernel=kernel[4:])
+    model.fit(x_train, y_train)
+    y_pred = model.predict(x_test)
     cur_acc = accuracy_score(y_test, y_pred)
     return cur_acc
 
@@ -26,11 +33,16 @@ def evaluate_embeddings(dataset_name, num_tests):
     with open(labels_filename, 'r') as f:
         labels_data = np.loadtxt(f, ndmin=1)
     accs = []
-    progbar = tf.keras.utils.Progbar(num_tests)
-    for test in range(num_tests):
-        acc = learn_embeddings(embeddings_data, labels_data, ratio=0.2)
-        accs.append(acc)
-        progbar.update(test+1, [('acc', acc*100.)])
+    for kernel in ['svm-sigmoid', 'svm-poly', 'svm-rbf', 'knn3', 'knn7', 'adaboost']:
+        print('Kernel %s'%kernel)
+        if kernel == 'adaboost':
+            num_tests = max(2, (num_tests // 20))
+        progbar = tf.keras.utils.Progbar(num_tests)
+        for test in range(num_tests):
+            acc = learn_embeddings(embeddings_data, labels_data, ratio=0.2, kernel=kernel)
+            if kernel == 'svm-rbf':
+                accs.append(acc)
+            progbar.update(test+1, [('acc', acc*100.)])
     acc_avg = tf.math.reduce_mean(accs)
     acc_std = tf.math.reduce_std(accs)
     return acc_avg, acc_std
