@@ -1,4 +1,5 @@
 import argparse
+import math
 import os
 import random
 import numpy as np
@@ -60,7 +61,7 @@ def train_embeddings(dataset_name, wl_extractor, embedder_extractor,
     wl_embedder = get_graph_wl_extractor(wl_extractor, max_depth, num_features, last_layer_only)
     graph_embedder = get_graph_embedder_extractor(embedder_extractor, num_graphs, num_features)
     wl_embedder_file, graph_embedder_file, csv_file = get_weight_filenames(dataset_name)
-    num_batchs = num_graphs
+    num_batchs = math.ceil(num_graphs // (k+1))
     for epoch in range(num_epochs):
         print('epoch %d/%d'%(epoch+1, num_epochs))
         lr = 0.002 * np.math.pow(1.1, - 50.*(epoch / num_epochs))
@@ -71,8 +72,8 @@ def train_embeddings(dataset_name, wl_extractor, embedder_extractor,
         wl_embedder.save_weights(wl_embedder_file)
         graph_embedder.save_weights(graph_embedder_file)
         graph_embedder.dump_to_csv(csv_file, (graph_features, graph_adj))
-        acc_avg, acc_std = svm.evaluate_embeddings(dataset_name, num_tests=10)
-        print('Accuracy: %.2f+-%.2f%%'%(acc_avg*100., acc_std*100.))
+        acc, std = svm.evaluate_embeddings(dataset_name, num_tests=10)
+        print('Accuracy: %.2f+-%.2f%%'%(acc*100., std*100.))
         print('')
 
 
@@ -94,11 +95,19 @@ if __name__ == '__main__':
     args = parser.parse_args()
     print(utils.str_from_args(args))
     if args.task in dataset.available_tasks():
-        train_embeddings(args.task, args.wl_extractor, args.embedder_extractor,
-                         args.max_depth, args.num_features, args.k,
-                         args.num_epochs, args.lbda, args.last_layer_only)
-        acc, std = svm.evaluate_embeddings(args.task, num_tests=60)
-        utils.record_args(args.task, args, acc, std)
+        accs = []
+        num_tests = 10
+        for test in range(num_tests):
+            train_embeddings(args.task, args.wl_extractor, args.embedder_extractor,
+                             args.max_depth, args.num_features, args.k,
+                             args.num_epochs, args.lbda, args.last_layer_only)
+            cur_acc, _ = svm.evaluate_embeddings(args.task, num_tests=60)
+            accs.append(cur_acc)
+            print('')
+        acc_avg = tf.math.reduce_mean(accs)
+        acc_std = tf.math.reduce_std(accs)
+        print('Final accuracy: %.2f+-%.2f%%'%(acc_avg*100., acc_std*100.))
+        utils.record_args(args.task, args, acc_avg, acc_std)
     else:
         print('Unknown task %s'%args.task)
         parser.print_help()
