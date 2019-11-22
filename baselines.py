@@ -11,16 +11,16 @@ import tensorflow as tf
 import dataset
 
 
-def learn_embeddings(embeddings, labels, ratio, kernel):
+def learn_embeddings(embeddings, labels, ratio, algo):
     test_size = int(labels.shape[0] * ratio)
     x_train, x_test, y_train, y_test = train_test_split(embeddings, labels, test_size=test_size, shuffle=True)
-    if kernel[:3] == 'knn':
-        model = KNeighborsClassifier(n_neighbors=int(kernel[3:]))
-    elif kernel == 'adaboost':
+    if algo[:3] == 'knn':
+        model = KNeighborsClassifier(n_neighbors=int(algo[3:]))
+    elif algo == 'adaboost':
         model = AdaBoostClassifier(n_estimators=100)
-    elif kernel[:4] == 'svm-':
-        model = svm.SVC(gamma='scale', kernel=kernel[4:])
-    elif kernel == 'perceptron':
+    elif algo[:4] == 'svm-':
+        model = svm.SVC(gamma='scale', kernel=algo[4:])
+    elif algo == 'perceptron':
         y_train = tf.keras.utils.to_categorical(y_train)
         y_train = y_train[:,y_train.any(0)]
         num_classes = y_train.shape[-1]
@@ -33,7 +33,7 @@ def learn_embeddings(embeddings, labels, ratio, kernel):
         ])
         model.compile(optimizer='adam', loss='categorical_crossentropy')
         model.fit(x_train, y_train, epochs=20, verbose=0)
-    if kernel != 'perceptron':
+    if algo != 'perceptron':
         model.fit(x_train, y_train)
     y_pred = model.predict(x_test)
     cur_acc = accuracy_score(y_test, y_pred)
@@ -47,17 +47,17 @@ def evaluate_embeddings(dataset_name, num_tests):
     with open(labels_filename, 'r') as f:
         labels_data = np.loadtxt(f, ndmin=1)
     accs = []
-    for kernel in ['perceptron', 'svm-sigmoid', 'svm-poly', 'svm-rbf', 'knn3', 'knn7', 'adaboost']:
-        print('Kernel %s'%kernel)
+    for algo in ['perceptron', 'svm-sigmoid', 'svm-poly', 'svm-rbf', 'knn3', 'knn7', 'adaboost']:
+        print('Algo %s'%algo)
         cur_num_tests = num_tests
-        if kernel == 'adaboost':
+        if algo == 'adaboost':
             cur_num_tests = max(2, (num_tests // 20))
-        if kernel == 'perceptron':
+        if algo == 'perceptron':
             cur_num_tests = max(2, (num_tests // 10))
         progbar = tf.keras.utils.Progbar(cur_num_tests)
         for test in range(cur_num_tests):
-            acc = learn_embeddings(embeddings_data, labels_data, ratio=0.2, kernel=kernel)
-            if kernel == 'svm-rbf':
+            acc = learn_embeddings(embeddings_data, labels_data, ratio=0.2, algo=algo)
+            if algo == 'svm-rbf':
                 accs.append(acc)
             progbar.update(test+1, [('acc', acc*100.)])
     acc_avg = tf.math.reduce_mean(accs)

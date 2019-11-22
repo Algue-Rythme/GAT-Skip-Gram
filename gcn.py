@@ -115,10 +115,9 @@ class StackedGraphConvolution(tf.keras.models.Model):
     def call(self, inputs):
         x = inputs[0]
         A = normalize_adjacency(inputs[1])
-        Z = inputs[2]
         outputs = []
         for layer in self.ga_layers:
-            x = layer((x, A, Z))
+            x = layer([x, A] + inputs[2:])
             if not self.last_layer_only:
                 outputs.append(x)
         if self.last_layer_only:

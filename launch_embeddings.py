@@ -54,10 +54,10 @@ def get_graph_embedder_extractor(embedder_extractor, num_graphs, num_features):
 
 def train_embeddings(dataset_name, wl_extractor, embedder_extractor,
                      max_depth, num_features, k, num_epochs, lbda, last_layer_only):
-    graph_adj, graph_features, edge_features = dataset.read_dortmund(dataset_name,
-                                                                     with_edge_features=False,
-                                                                     standardize=True)
-    num_graphs = len(graph_adj)
+    graph_inputs = dataset.read_dortmund(dataset_name,
+                                         with_edge_features=False,
+                                         standardize=True)
+    num_graphs = len(graph_inputs[0])
     wl_embedder = get_graph_wl_extractor(wl_extractor, max_depth, num_features, last_layer_only)
     graph_embedder = get_graph_embedder_extractor(embedder_extractor, num_graphs, num_features)
     wl_embedder_file, graph_embedder_file, csv_file = get_weight_filenames(dataset_name)
@@ -67,11 +67,11 @@ def train_embeddings(dataset_name, wl_extractor, embedder_extractor,
         lr = 0.002 * np.math.pow(1.1, - 50.*(epoch / num_epochs))
         skip_gram.train_epoch(
             wl_embedder, graph_embedder,
-            graph_features, graph_adj, edge_features,
+            graph_inputs,
             k, num_batchs, lbda, lr)
         wl_embedder.save_weights(wl_embedder_file)
         graph_embedder.save_weights(graph_embedder_file)
-        graph_embedder.dump_to_csv(csv_file, (graph_features, graph_adj))
+        graph_embedder.dump_to_csv(csv_file, graph_inputs)
         acc, std = baselines.evaluate_embeddings(dataset_name, num_tests=10)
         print('Accuracy: %.2f+-%.2f%%'%(acc*100., std*100.))
         print('')
