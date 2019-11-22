@@ -148,5 +148,5 @@ def read_graph_labels(dataset_name):
     return labels, len(label_set)
 
 def available_tasks():
-    tasks = ['ENZYMES', 'PROTEINS', 'PROTEINS_full', 'MUTAG', 'PTC_FM', 'NCI1', 'PTC_FR']
+    tasks = ['ENZYMES', 'PROTEINS', 'PROTEINS_full', 'MUTAG', 'PTC_FM', 'NCI1', 'PTC_FR', 'DD']
     return tasks
