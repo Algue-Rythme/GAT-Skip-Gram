@@ -110,7 +110,7 @@ if __name__ == '__main__':
         acc_std = tf.math.reduce_std(accs)
         print(utils.str_from_args(args))
         print('Final accuracy: %.2f+-%.2f%%'%(acc_avg*100., acc_std*100.))
-        utils.record_args(args.task, args, acc_avg, acc_std)
+        utils.record_args('embeddings', args.task, args, acc_avg, acc_std)
     else:
         print('Unknown task %s'%args.task)
         parser.print_help()

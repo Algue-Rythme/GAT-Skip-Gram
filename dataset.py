@@ -123,7 +123,7 @@ def print_statistics(graph_adj, node_features, edge_features):
     print('avg_nodes: %.2f'%np.array(num_nodes).mean())
     print('avg_edges: %.2f'%np.array(num_edges).mean())
     print('num_node_features: %d'%int(node_features[0].shape[1]))
-    if edge_features[0].shape != (0,):
+    if edge_features is not None:
         print('num_edge_features: %d'%int(edge_features[0].shape[2]))
     else:
         print('no edge features')
@@ -133,12 +133,14 @@ def read_dortmund(prefix, with_edge_features, standardize):
     graph_ids, graph_nodes, new_node_ids = get_graph_node_ids(prefix)
     graph_adj, adj_lst = get_graph_adj(prefix, graph_nodes, graph_ids, new_node_ids)
     node_features = get_node_features(prefix, standardize, graph_ids, new_node_ids, graph_adj)
-    edge_features =  [tf.constant([],dtype=tf.float32)]*len(graph_nodes)
+    edge_features = None
     if with_edge_features:
         edge_features = get_edge_features(prefix, standardize, graph_nodes, graph_ids, new_node_ids, adj_lst)
     print('%s opened with success !'%prefix, flush=True)
     print_statistics(graph_adj, node_features, edge_features)
-    return graph_adj, node_features, edge_features
+    if edge_features is None:
+        return node_features, graph_adj
+    return node_features, graph_adj, edge_features
 
 def read_graph_labels(dataset_name):
     labels_filename = os.path.join(dataset_name, '%s_graph_labels.txt'%dataset_name)

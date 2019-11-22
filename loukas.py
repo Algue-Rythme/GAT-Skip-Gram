@@ -27,6 +27,7 @@ class ConvolutionalLoukasCoarsener(tf.keras.models.Model):
             else:
                 raise ValueError
             self.blocks.append(block)
+        self.fc_middle = tf.keras.layers.Dense(num_features, activation='relu')
         self.fc_out = tf.keras.layers.Dense(output_dim, activation='linear')
 
     def get_embeddings_from_indices(self, inputs, indices):
@@ -89,5 +90,6 @@ class ConvolutionalLoukasCoarsener(tf.keras.models.Model):
             X, A = self.call_block(coarsening_matrix, G_reduced, X)
         Xs = tf.math.reduce_sum(X, axis=-2, keepdims=True)
         Xm = tf.math.reduce_max(X, axis=-2, keepdims=True)
-        X = self.fc_out(tf.concat([Xs, Xm], axis=-1))
+        X = self.fc_middle(tf.concat([Xs, Xm], axis=-1))
+        X = self.fc_out(X)
         return tf.squeeze(X), {'pyramid_depth':len(Gall), 'last_level_width':Gall[-1].N}

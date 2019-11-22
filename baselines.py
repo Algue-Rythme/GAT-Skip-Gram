@@ -64,7 +64,6 @@ def evaluate_embeddings(dataset_name, num_tests):
     acc_std = tf.math.reduce_std(accs)
     return acc_avg, acc_std
 
-
 if __name__ == '__main__':
     seed = random.randint(1, 1000 * 1000)
     print('Use seed %d'%seed)
