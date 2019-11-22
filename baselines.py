@@ -20,7 +20,21 @@ def learn_embeddings(embeddings, labels, ratio, kernel):
         model = AdaBoostClassifier(n_estimators=100)
     elif kernel[:4] == 'svm-':
         model = svm.SVC(gamma='scale', kernel=kernel[4:])
-    model.fit(x_train, y_train)
+    elif kernel == 'perceptron':
+        y_train = tf.keras.utils.to_categorical(y_train)
+        y_train = y_train[:,y_train.any(0)]
+        num_classes = y_train.shape[-1]
+        model = tf.keras.models.Sequential([
+            tf.keras.layers.Dense(128, activation='relu'),
+            tf.keras.layers.BatchNormalization(),
+            tf.keras.layers.Dense(16, activation='relu'),
+            tf.keras.layers.Dense(num_classes, activation='linear'),
+            tf.keras.layers.Activation('softmax')
+        ])
+        model.compile(optimizer='adam', loss='categorical_crossentropy')
+        model.fit(x_train, y_train, epochs=20, verbose=0)
+    if kernel != 'perceptron':
+        model.fit(x_train, y_train)
     y_pred = model.predict(x_test)
     cur_acc = accuracy_score(y_test, y_pred)
     return cur_acc
@@ -33,12 +47,15 @@ def evaluate_embeddings(dataset_name, num_tests):
     with open(labels_filename, 'r') as f:
         labels_data = np.loadtxt(f, ndmin=1)
     accs = []
-    for kernel in ['svm-sigmoid', 'svm-poly', 'svm-rbf', 'knn3', 'knn7', 'adaboost']:
+    for kernel in ['perceptron', 'svm-sigmoid', 'svm-poly', 'svm-rbf', 'knn3', 'knn7', 'adaboost']:
         print('Kernel %s'%kernel)
+        cur_num_tests = num_tests
         if kernel == 'adaboost':
-            num_tests = max(2, (num_tests // 20))
-        progbar = tf.keras.utils.Progbar(num_tests)
-        for test in range(num_tests):
+            cur_num_tests = max(2, (num_tests // 20))
+        if kernel == 'perceptron':
+            cur_num_tests = max(2, (num_tests // 10))
+        progbar = tf.keras.utils.Progbar(cur_num_tests)
+        for test in range(cur_num_tests):
             acc = learn_embeddings(embeddings_data, labels_data, ratio=0.2, kernel=kernel)
             if kernel == 'svm-rbf':
                 accs.append(acc)

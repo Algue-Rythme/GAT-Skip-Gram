@@ -10,7 +10,7 @@ import gat
 import gcn
 import kron
 import loukas
-import svm
+import baselines
 import utils
 
 
@@ -72,7 +72,7 @@ def train_embeddings(dataset_name, wl_extractor, embedder_extractor,
         wl_embedder.save_weights(wl_embedder_file)
         graph_embedder.save_weights(graph_embedder_file)
         graph_embedder.dump_to_csv(csv_file, (graph_features, graph_adj))
-        acc, std = svm.evaluate_embeddings(dataset_name, num_tests=10)
+        acc, std = baselines.evaluate_embeddings(dataset_name, num_tests=10)
         print('Accuracy: %.2f+-%.2f%%'%(acc*100., std*100.))
         print('')
 
@@ -103,7 +103,7 @@ if __name__ == '__main__':
             train_embeddings(args.task, args.wl_extractor, args.embedder_extractor,
                              args.max_depth, args.num_features, args.k,
                              args.num_epochs, args.lbda, args.last_layer_only)
-            cur_acc, _ = svm.evaluate_embeddings(args.task, num_tests=60)
+            cur_acc, _ = baselines.evaluate_embeddings(args.task, num_tests=60)
             accs.append(cur_acc)
             print('')
         acc_avg = tf.math.reduce_mean(accs)
