@@ -72,8 +72,9 @@ def train_embeddings(dataset_name, wl_extractor, embedder_extractor,
         wl_embedder.save_weights(wl_embedder_file)
         graph_embedder.save_weights(graph_embedder_file)
         graph_embedder.dump_to_csv(csv_file, graph_inputs)
-        acc, std = baselines.evaluate_embeddings(dataset_name, num_tests=10)
-        print('Accuracy: %.2f+-%.2f%%'%(acc*100., std*100.))
+        if (epoch+1) % 5 == 0:
+            acc, std = baselines.evaluate_embeddings(dataset_name, num_tests=10)
+            print('Accuracy: %.2f+-%.2f%%'%(acc*100., std*100.))
         print('')
 
 
@@ -94,12 +95,12 @@ if __name__ == '__main__':
     parser.add_argument('--last_layer_only', type=bool, default=False, help='Use only vocabulary of biggest radius.')
     parser.add_argument('--num_tests', type=int, default=1, help='Number of repetitions')
     args = parser.parse_args()
-    print(utils.str_from_args(args))
     if args.task in dataset.available_tasks():
         accs = []
         num_tests = args.num_tests
         for test in range(num_tests):
             print('Test %d'%(test+1))
+            print(utils.str_from_args(args))
             train_embeddings(args.task, args.wl_extractor, args.embedder_extractor,
                              args.max_depth, args.num_features, args.k,
                              args.num_epochs, args.lbda, args.last_layer_only)

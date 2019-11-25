@@ -59,6 +59,9 @@ def coarsen(G, K=10, r=0.5, max_levels=20, method='variation_edges', algorithm='
 
     for level in range(1,max_levels+1):
 
+        if n <= n_target:
+            break
+        
         G = Gc
 
         # how much more we need to reduce the current graph
@@ -70,12 +73,15 @@ def coarsen(G, K=10, r=0.5, max_levels=20, method='variation_edges', algorithm='
                     mask = lk<1e-10; lk[mask] = 1; lsinv = lk**(-0.5); lsinv[mask] = 0
                     B = Uk[:,:K] @ np.diag(lsinv[:K])
                 else:
-                    offset = 2*max(G.dw)
+                    offset = 2*np.max(G.dw)
                     T = offset*sp.sparse.eye(G.N, format='csc') - G.L
                     lk, Uk = sp.sparse.linalg.eigsh(T, k=K, which='LM', tol=1e-5)
                     lk = (offset-lk)[::-1]
                     Uk = Uk[:,::-1]
-                    mask = lk<1e-10; lk[mask] = 1; lsinv = lk**(-0.5); lsinv[mask] = 0
+                    mask = lk<1e-10;
+                    lk[mask] = 1
+                    lsinv = lk**(-1/2)
+                    lsinv[mask] = 0
                     B = Uk @ np.diag(lsinv)
                 A = B
             else:
@@ -120,8 +126,6 @@ def coarsen(G, K=10, r=0.5, max_levels=20, method='variation_edges', algorithm='
         Gall.append(Gc)
 
         n = Gc.N
-
-        if n <= n_target: break
 
     return C, Gc, Call, Gall
 

@@ -32,7 +32,7 @@ def learn_embeddings(embeddings, labels, ratio, algo):
             tf.keras.layers.Activation('softmax')
         ])
         model.compile(optimizer='adam', loss='categorical_crossentropy', metrics=['acc'])
-        model.fit(x_train, y_train, epochs=10, verbose=0, batch_size=64)
+        model.fit(x_train, y_train, epochs=20, verbose=0, batch_size=64)
         y_test = tf.keras.utils.to_categorical(y_test)
         y_test = y_test[:,y_test.any(0)]
         _, acc = model.evaluate(x_test, y_test, verbose=0)
@@ -56,7 +56,7 @@ def evaluate_embeddings(dataset_name, num_tests):
         if algo == 'adaboost':
             cur_num_tests = max(2, (num_tests // 20))
         if algo == 'perceptron':
-            cur_num_tests = max(2, (num_tests // 10))
+            cur_num_tests = max(3, (num_tests // 5))
         progbar = tf.keras.utils.Progbar(cur_num_tests)
         for test in range(cur_num_tests):
             acc = learn_embeddings(embeddings_data, labels_data, ratio=0.2, algo=algo)

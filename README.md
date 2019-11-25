@@ -3,7 +3,10 @@
 Datasets available:
 
 ```
-['ENZYMES', 'PROTEINS', 'PROTEINS_full', 'MUTAG', 'PTC_FM', 'NCI1', 'PTC_FR']
+['ENZYMES', 'PROTEINS', 'PROTEINS_full', 'MUTAG',
+ 'PTC_FM', 'NCI1', 'PTC_FR', 'DD',
+ 'Letter-high', 'Letter-med', 'Letter-low',
+ 'REDDIT_BINARY', 'COLLAB', 'MCF-7', 'MCF-7H']
 ```
 
 Note: 'ENZYMES' contains 32 unconnected graphs.
