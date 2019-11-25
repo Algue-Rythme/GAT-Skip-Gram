@@ -31,10 +31,13 @@ def learn_embeddings(embeddings, labels, ratio, algo):
             tf.keras.layers.Dense(num_classes, activation='linear'),
             tf.keras.layers.Activation('softmax')
         ])
-        model.compile(optimizer='adam', loss='categorical_crossentropy')
-        model.fit(x_train, y_train, epochs=20, verbose=0)
-    if algo != 'perceptron':
-        model.fit(x_train, y_train)
+        model.compile(optimizer='adam', loss='categorical_crossentropy', metrics=['acc'])
+        model.fit(x_train, y_train, epochs=10, verbose=0, batch_size=64)
+        y_test = tf.keras.utils.to_categorical(y_test)
+        y_test = y_test[:,y_test.any(0)]
+        _, acc = model.evaluate(x_test, y_test, verbose=0)
+        return acc
+    model.fit(x_train, y_train)
     y_pred = model.predict(x_test)
     cur_acc = accuracy_score(y_test, y_pred)
     return cur_acc
