@@ -94,7 +94,7 @@ if __name__ == '__main__':
     parser.add_argument('--lbda', type=float, default=1., help='Weight for positive samples')
     parser.add_argument('--last_layer_only', type=bool, default=False, help='Use only vocabulary of biggest radius.')
     parser.add_argument('--num_tests', type=int, default=1, help='Number of repetitions')
-    parser.add_argument('--device', type=int, default=0, help='Index of the target GPU')
+    parser.add_argument('--device', default='0', help='Index of the target GPU')
     args = parser.parse_args()
     if args.task in dataset.available_tasks():
         with tf.device('/gpu:'+args.device):

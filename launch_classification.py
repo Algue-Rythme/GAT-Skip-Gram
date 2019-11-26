@@ -101,7 +101,7 @@ if __name__ == '__main__':
     parser.add_argument('--batch_size', type=int, default=8, help='Number of graphs in each batch')
     parser.add_argument('--num_stages', type=int, default=2, help='Number of GCN layers in a single coarsening')
     parser.add_argument('--num_features', type=int, default=256, help='Size of feature space')
-    parser.add_argument('--device', type=int, default=0, help='Index of the target GPU')
+    parser.add_argument('--device', default='0', help='Index of the target GPU')
     args = parser.parse_args()
     print(utils.str_from_args(args))
     if args.task in dataset.available_tasks():
