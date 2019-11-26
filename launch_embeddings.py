@@ -94,24 +94,26 @@ if __name__ == '__main__':
     parser.add_argument('--lbda', type=float, default=1., help='Weight for positive samples')
     parser.add_argument('--last_layer_only', type=bool, default=False, help='Use only vocabulary of biggest radius.')
     parser.add_argument('--num_tests', type=int, default=1, help='Number of repetitions')
+    parser.add_argument('--device', type=int, default=0, help='Index of the target GPU')
     args = parser.parse_args()
     if args.task in dataset.available_tasks():
-        accs = []
-        num_tests = args.num_tests
-        for test in range(num_tests):
-            print('Test %d'%(test+1))
+        with tf.device('/gpu:'+args.device):
+            accs = []
+            num_tests = args.num_tests
+            for test in range(num_tests):
+                print('Test %d'%(test+1))
+                print(utils.str_from_args(args))
+                train_embeddings(args.task, args.wl_extractor, args.embedder_extractor,
+                                args.max_depth, args.num_features, args.k,
+                                args.num_epochs, args.lbda, args.last_layer_only)
+                cur_acc, _ = baselines.evaluate_embeddings(args.task, num_tests=60)
+                accs.append(cur_acc)
+                print('')
+            acc_avg = tf.math.reduce_mean(accs)
+            acc_std = tf.math.reduce_std(accs)
             print(utils.str_from_args(args))
-            train_embeddings(args.task, args.wl_extractor, args.embedder_extractor,
-                             args.max_depth, args.num_features, args.k,
-                             args.num_epochs, args.lbda, args.last_layer_only)
-            cur_acc, _ = baselines.evaluate_embeddings(args.task, num_tests=60)
-            accs.append(cur_acc)
-            print('')
-        acc_avg = tf.math.reduce_mean(accs)
-        acc_std = tf.math.reduce_std(accs)
-        print(utils.str_from_args(args))
-        print('Final accuracy: %.2f+-%.2f%%'%(acc_avg*100., acc_std*100.))
-        utils.record_args('embeddings', args.task, args, acc_avg, acc_std)
+            print('Final accuracy: %.2f+-%.2f%%'%(acc_avg*100., acc_std*100.))
+            utils.record_args('embeddings', args.task, args, acc_avg, acc_std)
     else:
         print('Unknown task %s'%args.task)
         parser.print_help()

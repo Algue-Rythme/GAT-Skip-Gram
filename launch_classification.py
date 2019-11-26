@@ -58,36 +58,35 @@ def train_classification(dataset_name, coarsener, num_epochs, batch_size, num_st
         os.mkdir(dataset_name+'_weights')
     except FileExistsError:
         pass
-    with tf.device('/gpu:0'):
-        graph_inputs = dataset.read_dortmund(dataset_name,
-                                             with_edge_features=False,
-                                             standardize=True)
-        labels, num_labels = dataset.read_graph_labels(dataset_name)
-        (x_train, y_train), (x_val, y_val) = utils.train_test_split(*graph_inputs, labels, split_ratio=0.2)
-        (x_val, y_val), (x_test, y_test) = utils.train_test_split(*x_val, y_val, split_ratio=0.5)
-        x_train, x_val, x_test = utils.nester(x_train), utils.nester(x_val), utils.nester(x_test)
-        del graph_inputs, labels
-        model = get_graph_coarsener(coarsener, output_dim=num_labels, num_stages=num_stages, num_features=num_features)
-        best_weights = model.get_weights()
-        best_epoch, best_acc = 0, 0.
-        for epoch in range(num_epochs):
-            print('Epoch %d/%d'%(epoch+1, num_epochs))
-            lr = 0.002 * np.math.pow(1.1, - 50.*(epoch / num_epochs))
-            optimizer = tf.keras.optimizers.Adam(lr)
-            train_single_epoch(x_train, y_train, model, optimizer, batch_size)
-            print('Validation set: ')
-            acc_val, _ = evaluate(x_val, y_val, model)
-            if acc_val >= best_acc:
-                best_epoch, best_acc = epoch+1, acc_val
-                best_weights = model.get_weights()
-                model.save_weights(os.path.join(dataset_name+'_weights', 'coarsener.h5'))
-            utils.shuffle_dataset(x_train, y_train)
-            print('')
-        print('Best model on validation set was found at epoch %d with accuracy %f'%(best_epoch, best_acc))
-        model.set_weights(best_weights)
-        print('Test set: ')
-        acc_test, _ = evaluate(x_test, y_test, model)
-        return acc_test
+    graph_inputs = dataset.read_dortmund(dataset_name,
+                                         with_edge_features=False,
+                                         standardize=True)
+    labels, num_labels = dataset.read_graph_labels(dataset_name)
+    (x_train, y_train), (x_val, y_val) = utils.train_test_split(*graph_inputs, labels, split_ratio=0.2)
+    (x_val, y_val), (x_test, y_test) = utils.train_test_split(*x_val, y_val, split_ratio=0.5)
+    x_train, x_val, x_test = utils.nester(x_train), utils.nester(x_val), utils.nester(x_test)
+    del graph_inputs, labels
+    model = get_graph_coarsener(coarsener, output_dim=num_labels, num_stages=num_stages, num_features=num_features)
+    best_weights = model.get_weights()
+    best_epoch, best_acc = 0, 0.
+    for epoch in range(num_epochs):
+        print('Epoch %d/%d'%(epoch+1, num_epochs))
+        lr = 0.002 * np.math.pow(1.1, - 50.*(epoch / num_epochs))
+        optimizer = tf.keras.optimizers.Adam(lr)
+        train_single_epoch(x_train, y_train, model, optimizer, batch_size)
+        print('Validation set: ')
+        acc_val, _ = evaluate(x_val, y_val, model)
+        if acc_val >= best_acc:
+            best_epoch, best_acc = epoch+1, acc_val
+            best_weights = model.get_weights()
+            model.save_weights(os.path.join(dataset_name+'_weights', 'coarsener.h5'))
+        utils.shuffle_dataset(x_train, y_train)
+        print('')
+    print('Best model on validation set was found at epoch %d with accuracy %f'%(best_epoch, best_acc))
+    model.set_weights(best_weights)
+    print('Test set: ')
+    acc_test, _ = evaluate(x_test, y_test, model)
+    return acc_test
 
 
 if __name__ == '__main__':
@@ -102,14 +101,16 @@ if __name__ == '__main__':
     parser.add_argument('--batch_size', type=int, default=8, help='Number of graphs in each batch')
     parser.add_argument('--num_stages', type=int, default=2, help='Number of GCN layers in a single coarsening')
     parser.add_argument('--num_features', type=int, default=256, help='Size of feature space')
+    parser.add_argument('--device', type=int, default=0, help='Index of the target GPU')
     args = parser.parse_args()
     print(utils.str_from_args(args))
     if args.task in dataset.available_tasks():
-        acc = train_classification(args.task, args.coarsener, args.num_epochs,
-                                args.batch_size, args.num_stages, args.num_features)
-        utils.record_args('classification', args.task, args, acc, 0.)
-        print('Final accuracy: %.2f%%'%(acc*100.))
-        print(utils.str_from_args(args))
+        with tf.device('/gpu:'+args.device):
+            acc = train_classification(args.task, args.coarsener, args.num_epochs,
+                                    args.batch_size, args.num_stages, args.num_features)
+            utils.record_args('classification', args.task, args, acc, 0.)
+            print('Final accuracy: %.2f%%'%(acc*100.))
+            print(utils.str_from_args(args))
     else:
         print('Unknown task %s'%args.task)
         parser.print_help()
