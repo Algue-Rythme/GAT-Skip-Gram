@@ -50,4 +50,4 @@ python3 launch_classification.py --task=ENZYMES
 # Thanks
 
 The `loukas_coarsening` folder is copied from https://github.com/loukasa/graph-coarsening with only slight modifications.  
-Hence, my work is redistributed under the same license.    
+My work is redistributed under the same license.    

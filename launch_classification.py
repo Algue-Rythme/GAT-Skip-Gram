@@ -104,11 +104,13 @@ if __name__ == '__main__':
     parser.add_argument('--device', default='0', help='Index of the target GPU')
     args = parser.parse_args()
     print(utils.str_from_args(args))
+    departure_time = utils.get_now()
+    print(departure_time)
     if args.task in dataset.available_tasks():
         with tf.device('/gpu:'+args.device):
             acc = train_classification(args.task, args.coarsener, args.num_epochs,
                                     args.batch_size, args.num_stages, args.num_features)
-            utils.record_args('classification', args.task, args, acc, 0.)
+            utils.record_args('classification', departure_time, args.task, args, acc, 0.)
             print('Final accuracy: %.2f%%'%(acc*100.))
             print(utils.str_from_args(args))
     else:

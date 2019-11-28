@@ -42,7 +42,7 @@ def learn_embeddings(embeddings, labels, ratio, algo):
     cur_acc = accuracy_score(y_test, y_pred)
     return cur_acc
 
-def evaluate_embeddings(dataset_name, num_tests):
+def evaluate_embeddings(dataset_name, num_tests, final=False):
     graph_embedder_filename = os.path.join(dataset_name+'_weights', 'graph_embeddings.csv')
     labels_filename = os.path.join(dataset_name, '%s_graph_labels.txt'%dataset_name)
     with open(graph_embedder_filename, 'r') as f:
@@ -50,7 +50,10 @@ def evaluate_embeddings(dataset_name, num_tests):
     with open(labels_filename, 'r') as f:
         labels_data = np.loadtxt(f, ndmin=1)
     accs = []
-    for algo in ['perceptron', 'svm-sigmoid', 'svm-poly', 'svm-rbf', 'knn3', 'knn7', 'adaboost']:
+    algos = ['svm-rbf']
+    if final:
+        algos = ['perceptron', 'svm-sigmoid', 'svm-poly', 'svm-rbf', 'knn3', 'knn7', 'adaboost']
+    for algo in algos:
         print('Algo %s'%algo)
         cur_num_tests = num_tests
         if algo == 'adaboost':

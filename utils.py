@@ -1,3 +1,4 @@
+import datetime
 import os
 import random
 import warnings
@@ -54,9 +55,15 @@ def str_from_args(args):
     args_dict = vars(args)
     return ' '.join([key+'='+str(args_dict[key]) for key in sorted(args_dict.keys())])
 
-def record_args(method_name, dataset_name, args, acc_avg, acc_std):
+def get_now():
+    return '%s-%s'%(datetime.date.today().strftime('%m/%d/%y'), datetime.datetime.now())
+
+def record_args(method_name, departure_time, dataset_name, args, acc_avg, acc_std):
     experiments_filename = os.path.join(dataset_name+'_weights', 'experiments.txt')
     args_formatted = str_from_args(args)
     acc_formatted = (' acc=%.2f'%(acc_avg*100)) + (' std=%.2f'%(acc_std*100))
+    departure_time = ' start=' + departure_time
+    end_time = ' end=' + get_now()
     with open(experiments_filename, 'a') as experiments_file:
-        experiments_file.write(args_formatted + acc_formatted + (' method_name=%s'%method_name) + '\n')
+        experiments_file.write(args_formatted + acc_formatted + ' method_name=%s'%method_name)
+        experiments_file.write(departure_time + end_time + '\n')

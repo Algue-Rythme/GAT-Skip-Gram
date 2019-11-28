@@ -72,15 +72,14 @@ def train_embeddings(dataset_name, wl_extractor, embedder_extractor,
         wl_embedder.save_weights(wl_embedder_file)
         graph_embedder.save_weights(graph_embedder_file)
         graph_embedder.dump_to_csv(csv_file, graph_inputs)
-        if (epoch+1) % 5 == 0:
-            acc, std = baselines.evaluate_embeddings(dataset_name, num_tests=10)
-            print('Accuracy: %.2f+-%.2f%%'%(acc*100., std*100.))
+        acc, std = baselines.evaluate_embeddings(dataset_name, num_tests=10)
+        print('Accuracy: %.2f+-%.2f%%'%(acc*100., std*100.))
         print('')
 
 
 if __name__ == '__main__':
     seed = random.randint(1, 1000 * 1000)
-    print('Seed used: %d', seed)
+    print('Seed used: %d'%seed)
     np.random.seed(seed + 789)
     tf.random.set_seed(seed + 146)
     parser = argparse.ArgumentParser()
@@ -96,6 +95,8 @@ if __name__ == '__main__':
     parser.add_argument('--num_tests', type=int, default=10, help='Number of repetitions')
     parser.add_argument('--device', default='0', help='Index of the target GPU')
     args = parser.parse_args()
+    departure_time = utils.get_now()
+    print(departure_time)
     if args.task in dataset.available_tasks():
         with tf.device('/gpu:'+args.device):
             accs = []
@@ -104,16 +105,16 @@ if __name__ == '__main__':
                 print('Test %d'%(test+1))
                 print(utils.str_from_args(args))
                 train_embeddings(args.task, args.wl_extractor, args.embedder_extractor,
-                                args.max_depth, args.num_features, args.k,
-                                args.num_epochs, args.lbda, args.last_layer_only)
-                cur_acc, _ = baselines.evaluate_embeddings(args.task, num_tests=60)
+                                 args.max_depth, args.num_features, args.k,
+                                 args.num_epochs, args.lbda, args.last_layer_only)
+                cur_acc, _ = baselines.evaluate_embeddings(args.task, num_tests=60, final=True)
                 accs.append(cur_acc)
                 print('')
             acc_avg = tf.math.reduce_mean(accs)
             acc_std = tf.math.reduce_std(accs)
             print(utils.str_from_args(args))
             print('Final accuracy: %.2f+-%.2f%%'%(acc_avg*100., acc_std*100.))
-            utils.record_args('embeddings', args.task, args, acc_avg, acc_std)
+            utils.record_args('embeddings', departure_time, args.task, args, acc_avg, acc_std)
     else:
         print('Unknown task %s'%args.task)
         parser.print_help()
