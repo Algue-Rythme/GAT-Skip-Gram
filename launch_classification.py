@@ -14,10 +14,16 @@ def get_graph_coarsener(coarsener, output_dim, num_stages, num_features):
         model = kron.ConvolutionalKronCoarsener(output_dim=output_dim, num_stages=num_stages,
                                                 num_features=num_features, activation='relu')
         return model
-    elif coarsener == 'loukas':
+    elif coarsener.startswith('loukas'):
+        if coarsener.endswith('neighbors'):
+            variation_method = 'variation_neighborhood'
+        elif coarsener.endswith('edge'):
+            variation_method = 'variation_edges'
+        else:
+            raise ValueError
         model = loukas.ConvolutionalLoukasCoarsener(output_dim=output_dim, num_stages=num_stages,
                                                     num_features=num_features,
-                                                    coarsening_method='variation_neighborhood',
+                                                    coarsening_method=variation_method,
                                                     pooling_method='sum', block_layer='gcn')
         return model
     raise ValueError
