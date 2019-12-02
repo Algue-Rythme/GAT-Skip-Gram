@@ -102,7 +102,7 @@ if __name__ == '__main__':
     tf.random.set_seed(seed + 146)
     parser = argparse.ArgumentParser()
     parser.add_argument('--task', help='Task to execute. Only %s are currently available.'%str(dataset.available_tasks()))
-    parser.add_argument('--coarsener', default='loukas', help='Graph coarsener. \'kron\' or \'loukas\'')
+    parser.add_argument('--coarsener', default='loukas-neighbors', help='Graph coarsener. \'kron\' or \'loukas\'')
     parser.add_argument('--num_epochs', type=int, default=100, help='Number of epochs')
     parser.add_argument('--batch_size', type=int, default=8, help='Number of graphs in each batch')
     parser.add_argument('--num_stages', type=int, default=2, help='Number of GCN layers in a single coarsening')

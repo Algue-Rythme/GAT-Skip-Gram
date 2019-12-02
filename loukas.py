@@ -1,4 +1,5 @@
 import warnings
+import matplotlib.pyplot as plt
 import numpy as np
 import scipy
 import tensorflow as tf
@@ -7,6 +8,12 @@ import loukas_coarsening.coarsening_utils as loukas
 import gat
 import gcn
 
+
+def print_pyramid(Call, Gall):
+    for G in Gall:
+        G.set_coordinates(kind='spring')
+    loukas.plot_coarsening(Gall, Call[:-1])
+    plt.show()
 
 class ConvolutionalLoukasCoarsener(tf.keras.models.Model):
 

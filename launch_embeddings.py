@@ -27,7 +27,7 @@ def get_weight_filenames(dataset_name):
 
 def get_graph_wl_extractor(extractor, max_depth, num_features, last_layer_only):
     if extractor == 'gat':
-        num_heads = 4
+        num_heads = 1
         assert num_features%num_heads == 0
         F = num_features // num_heads
         model = gat.StackedGraphAttention(max_depth, num_heads=num_heads, num_features=F, last_layer_only=last_layer_only)
