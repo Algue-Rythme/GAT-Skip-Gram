@@ -69,12 +69,13 @@ def train_embeddings(dataset_name, wl_extractor, embedder_extractor,
             wl_embedder, graph_embedder,
             graph_inputs,
             k, num_batchs, lbda, lr)
-        wl_embedder.save_weights(wl_embedder_file)
-        graph_embedder.save_weights(graph_embedder_file)
-        graph_embedder.dump_to_csv(csv_file, graph_inputs)
-        acc, std = baselines.evaluate_embeddings(dataset_name, num_tests=10)
-        print('Accuracy: %.2f+-%.2f%%'%(acc*100., std*100.))
-        print('')
+        if epoch+1 == num_epochs or (epoch+1)%5 == 0:
+            wl_embedder.save_weights(wl_embedder_file)
+            graph_embedder.save_weights(graph_embedder_file)
+            graph_embedder.dump_to_csv(csv_file, graph_inputs)
+            acc, std = baselines.evaluate_embeddings(dataset_name, num_tests=10)
+            print('Accuracy: %.2f+-%.2f%%'%(acc*100., std*100.))
+            print('')
 
 
 if __name__ == '__main__':
