@@ -15,16 +15,17 @@ def get_graph_coarsener(coarsener, output_dim, num_stages, num_features):
                                                 num_features=num_features, activation='relu')
         return model
     elif coarsener.startswith('loukas'):
-        if coarsener.endswith('neighbors'):
+        if 'neighbors' in coarsener:
             variation_method = 'variation_neighborhood'
-        elif coarsener.endswith('edge'):
+        elif 'edge' in coarsener:
             variation_method = 'variation_edges'
         else:
             raise ValueError
+        block_layer = [name for name in ['gcn', 'gat', 'krylov'] if name in coarsener][0]
         model = loukas.ConvolutionalLoukasCoarsener(output_dim=output_dim, num_stages=num_stages,
                                                     num_features=num_features,
                                                     coarsening_method=variation_method,
-                                                    pooling_method='sum', block_layer='gcn')
+                                                    pooling_method='sum', block_layer=block_layer)
         return model
     raise ValueError
 

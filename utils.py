@@ -67,3 +67,8 @@ def record_args(method_name, departure_time, dataset_name, args, acc_avg, acc_st
     with open(experiments_filename, 'a') as experiments_file:
         experiments_file.write(args_formatted + acc_formatted + ' method_name=%s'%method_name)
         experiments_file.write(departure_time + end_time + '\n')
+
+def build_laplacian(adj):
+    degrees = tf.linalg.diag(tf.math.reduce_sum(adj, axis=0))
+    laplacian = degrees - adj
+    return laplacian

@@ -4,13 +4,14 @@ import os
 import random
 import numpy as np
 import tensorflow as tf
+import baselines
 import dataset
 import skip_gram
 import gat
 import gcn
 import kron
 import loukas
-import baselines
+import truncated_krylov
 import utils
 
 
@@ -25,20 +26,31 @@ def get_weight_filenames(dataset_name):
         csv_file = os.path.join(dataset_name+'_weights', 'graph_embeddings.csv')
     return wl_embedder_file, graph_embedder_file, csv_file
 
-def get_graph_wl_extractor(extractor, max_depth, num_features, last_layer_only, rooted_subtree):
+def get_graph_wl_extractor(extractor, max_depth, num_features, last_layer_only):
     if extractor == 'gat':
         num_heads = 1
         assert num_features%num_heads == 0
         F = num_features // num_heads
-        model = gat.StackedGraphAttention(max_depth, num_heads=num_heads, num_features=F, last_layer_only=last_layer_only)
+        model = gat.StackedGraphAttention(max_depth,
+                                          num_heads=num_heads,
+                                          num_features=F,
+                                          last_layer_only=last_layer_only)
         return model
-    if extractor == 'gcn' or extractor == 'random_matrix':
+    if extractor.startswith('gcn') or extractor == 'random_matrix':
+        rooted_subtree = 'rooted' in extractor
         model = gcn.StackedGraphConvolution(max_depth,
                                             num_features=num_features,
                                             last_layer_only=last_layer_only,
                                             rooted_subtree=rooted_subtree)
         if extractor == 'random_matrix':
             model.trainable = False
+        return model
+    if extractor == 'krylov':
+        num_hops = 4
+        model = truncated_krylov.TruncatedKrylov(max_depth,
+                                                 num_features=num_features,
+                                                 num_hops=num_hops,
+                                                 last_layer_only=last_layer_only)
         return model
     raise ValueError
 
@@ -48,21 +60,22 @@ def get_graph_embedder_extractor(embedder_extractor, num_graphs, num_features):
     elif embedder_extractor == 'kron':
         return kron.ConvolutionalKronCoarsener(output_dim=num_features, num_stages=2,
                                                num_features=num_features, activation='relu')
-    elif embedder_extractor == 'loukas':
+    elif embedder_extractor.startswith('loukas'):
+        block_layer = [name for name in ['gcn', 'gat', 'krylov'] if name in embedder_extractor][0]
         return loukas.ConvolutionalLoukasCoarsener(output_dim=num_features, num_stages=2,
                                                    num_features=num_features,
                                                    coarsening_method='variation_neighborhood',
-                                                   pooling_method='mean', block_layer='gcn')
+                                                   pooling_method='mean', block_layer=block_layer)
     raise ValueError
 
 def train_embeddings(dataset_name, wl_extractor, embedder_extractor,
-                     max_depth, num_features, k, num_epochs, lbda, last_layer_only, rooted_subtree):
+                     max_depth, num_features, k, num_epochs, lbda, last_layer_only):
     graph_inputs = dataset.read_dortmund(dataset_name,
                                          with_edge_features=False,
                                          standardize=True)
     num_graphs = len(graph_inputs[0])
     wl_embedder = get_graph_wl_extractor(wl_extractor, max_depth, num_features,
-                                         last_layer_only, rooted_subtree)
+                                         last_layer_only)
     graph_embedder = get_graph_embedder_extractor(embedder_extractor, num_graphs, num_features)
     wl_embedder_file, graph_embedder_file, csv_file = get_weight_filenames(dataset_name)
     num_batchs = math.ceil(num_graphs // (k+1))
@@ -89,9 +102,9 @@ if __name__ == '__main__':
     tf.random.set_seed(seed + 146)
     parser = argparse.ArgumentParser()
     parser.add_argument('--task', help='Task to execute. Only %s are currently available.'%str(dataset.available_tasks()))
-    parser.add_argument('--wl_extractor', default='gcn', help='Wesfeiler Lehman extractor. \'gcn\', \'gat\' or \'random_matrix\'')
+    parser.add_argument('--wl_extractor', default='gcn', help='Wesfeiler Lehman extractor. \'gcn\', \'gat\', \'random_matrix\' or \'krylov\'')
     parser.add_argument('--embedder_extractor', default='raw_embedding', help='Extractor of graph embeddings. \'raw_embedding\', \'kron\' or \'loukas\'')
-    parser.add_argument('--max_depth', type=int, default=4, help='Depth of extractor.')
+    parser.add_argument('--max_depth', type=int, default=1, help='Depth of extractor.')
     parser.add_argument('--num_features', type=int, default=1024, help='Size of feature space')
     parser.add_argument('--k', type=int, default=1, help='Ratio between positive and negative samples')
     parser.add_argument('--num_epochs', type=int, default=100, help='Number of epochs')
@@ -99,7 +112,6 @@ if __name__ == '__main__':
     parser.add_argument('--last_layer_only', type=bool, default=False, help='Use only vocabulary of biggest radius.')
     parser.add_argument('--num_tests', type=int, default=10, help='Number of repetitions')
     parser.add_argument('--device', default='0', help='Index of the target GPU')
-    parser.add_argument('--rooted_subtree', type=bool, default=False, help='Factorize order 1 approximation of Chebychev.')
     args = parser.parse_args()
     departure_time = utils.get_now()
     print(departure_time)
@@ -112,8 +124,7 @@ if __name__ == '__main__':
                 print(utils.str_from_args(args))
                 train_embeddings(args.task, args.wl_extractor, args.embedder_extractor,
                                  args.max_depth, args.num_features, args.k,
-                                 args.num_epochs, args.lbda, args.last_layer_only,
-                                 args.rooted_subtree)
+                                 args.num_epochs, args.lbda, args.last_layer_only)
                 cur_acc, _ = baselines.evaluate_embeddings(args.task, num_tests=60, final=True)
                 accs.append(cur_acc)
                 print('')

@@ -20,11 +20,6 @@ def get_schur_complement(matrix, major, minor):
         return A
     return M_D
 
-def build_laplacian(adj):
-    degrees = tf.linalg.diag(tf.math.reduce_sum(adj, axis=0))
-    laplacian = degrees - adj
-    return laplacian
-
 def largest_eigen_vector_method(laplacian):
     _, eigenvectors = tf.linalg.eigh(tf.dtypes.cast(laplacian, dtype=tf.float64))
     largest_eigenvector = eigenvectors[:,-1]
@@ -55,7 +50,7 @@ class KronCoarsening(tf.keras.layers.Layer):
 
     def call(self, inputs):
         X, A = inputs
-        L = build_laplacian(A)
+        L = utils.build_laplacian(A)
         major, minor = self.reduction_method(L)
         assert major and minor
         X_reduced = tf.gather(X, indices=major, axis=-2)
