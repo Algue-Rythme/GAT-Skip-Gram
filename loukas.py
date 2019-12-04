@@ -34,7 +34,7 @@ class ConvolutionalLoukasCoarsener(tf.keras.models.Model):
             else:
                 raise ValueError
             self.blocks.append(block)
-        self.fc_middle = tf.keras.layers.Dense(num_features, activation='relu')
+        self.fc_middle = tf.keras.layers.Dense(128, activation='relu')
         self.fc_out = tf.keras.layers.Dense(output_dim, activation='linear')
 
     def get_embeddings_from_indices(self, inputs, indices):

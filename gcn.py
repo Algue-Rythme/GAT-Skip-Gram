@@ -1,14 +1,23 @@
 """Graph Convolutional Neural Network.
+
+It supports edge features (high cost).
+
+It also support different parameter for order 0 coefficient in Chebychev expansion.
 """
 
 import tensorflow as tf
 
 
-def normalize_adjacency(A):
+def get_degrees(A):
+    return tf.math.reduce_sum(A, axis=1)
+
+def normalize_adjacency(A, rooted_subtree):
     A = A + tf.eye(num_rows=A.shape[0])
-    D = tf.math.reduce_sum(A, axis=1)
+    D = get_degrees(A)
     D = tf.linalg.diag(tf.math.rsqrt(D))
     A = D @ A @ D
+    if rooted_subtree:
+        A = tf.linalg.set_diag(A, tf.zeros(shape=int(A.shape[0]), dtype=tf.float32))
     return A
 
 
@@ -17,6 +26,7 @@ class GraphConvolution(tf.keras.layers.Layer):
     def __init__(self,
                  F_,
                  auto_normalize=False,
+                 rooted_subtree=False,
                  activation='relu',
                  use_bias=True,
                  kernel_initializer='glorot_uniform',
@@ -30,6 +40,7 @@ class GraphConvolution(tf.keras.layers.Layer):
 
         self.F_ = F_  # Number of output features (F' in the paper)
         self.auto_normalize = auto_normalize
+        self.rooted_subtree = rooted_subtree
         self.activation = tf.keras.activations.get(activation)  # Eq. 4 in the paper
         self.use_bias = use_bias
 
@@ -47,7 +58,7 @@ class GraphConvolution(tf.keras.layers.Layer):
         # Populated by build()
         self.kernel = None       # Layer kernel
         self.bias = None        # Layer bias
-
+        self.rooted_kernel = None
         self.edge_kernel = None
 
         self.output_dim = self.F_
@@ -74,6 +85,13 @@ class GraphConvolution(tf.keras.layers.Layer):
                                         constraint=self.bias_constraint,
                                         name='bias')
 
+        if self.rooted_subtree:
+            self.rooted_kernel = self.add_weight(shape=(F, self.F_),
+                                                 initializer=self.kernel_initializer,
+                                                 regularizer=self.kernel_regularizer,
+                                                 constraint=self.kernel_constraint,
+                                                 name='rooted_kernel')
+
         if len(input_shape) == 3 and input_shape[2] != (0,):
             F_edge = input_shape[2][-1]
 
@@ -88,8 +106,12 @@ class GraphConvolution(tf.keras.layers.Layer):
         X = inputs[0]  # Node features (N x F)
         A = inputs[1]  # normalized Adjacency matrix (N x N)
         if self.auto_normalize:
-            A = normalize_adjacency(A)
+            A = normalize_adjacency(A, self.rooted_subtree)
         y = A @ X @ self.kernel
+        if self.rooted_subtree:
+            D = get_degrees(A)
+            Dinv = 1. / D
+            y = y + tf.expand_dims(Dinv, axis=-1) * (X @ self.rooted_kernel)
         if self.edge_kernel is not None:
             Z = inputs[2]
             y = y + tf.einsum('ij,ijf,fg->ig', A, Z, self.edge_kernel)
@@ -101,12 +123,13 @@ class GraphConvolution(tf.keras.layers.Layer):
 
 class StackedGraphConvolution(tf.keras.models.Model):
 
-    def __init__(self, num_layers, num_features, last_layer_only):
+    def __init__(self, num_layers, num_features, last_layer_only, rooted_subtree):
         super(StackedGraphConvolution, self).__init__()
         self.num_layers = num_layers
         self.last_layer_only = last_layer_only
-        self.ga_layers = [GraphConvolution(num_features, activation='linear') for _ in range(num_layers)]
+        self.ga_layers = [GraphConvolution(num_features, activation='linear', rooted_subtree=rooted_subtree) for _ in range(num_layers)]
         self.activation = tf.keras.layers.Activation('relu')
+        self.rooted_subtree = rooted_subtree
 
     def vocab_size(self):
         if self.last_layer_only:
@@ -115,7 +138,7 @@ class StackedGraphConvolution(tf.keras.models.Model):
 
     def call(self, inputs):
         x = inputs[0]
-        A = normalize_adjacency(inputs[1])
+        A = normalize_adjacency(inputs[1], self.rooted_subtree)
         outputs = []
         for index, layer in enumerate(self.ga_layers):
             x = layer([x, A] + inputs[2:])

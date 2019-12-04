@@ -25,7 +25,7 @@ def get_weight_filenames(dataset_name):
         csv_file = os.path.join(dataset_name+'_weights', 'graph_embeddings.csv')
     return wl_embedder_file, graph_embedder_file, csv_file
 
-def get_graph_wl_extractor(extractor, max_depth, num_features, last_layer_only):
+def get_graph_wl_extractor(extractor, max_depth, num_features, last_layer_only, rooted_subtree):
     if extractor == 'gat':
         num_heads = 1
         assert num_features%num_heads == 0
@@ -33,7 +33,10 @@ def get_graph_wl_extractor(extractor, max_depth, num_features, last_layer_only):
         model = gat.StackedGraphAttention(max_depth, num_heads=num_heads, num_features=F, last_layer_only=last_layer_only)
         return model
     if extractor == 'gcn' or extractor == 'random_matrix':
-        model = gcn.StackedGraphConvolution(max_depth, num_features=num_features, last_layer_only=last_layer_only)
+        model = gcn.StackedGraphConvolution(max_depth,
+                                            num_features=num_features,
+                                            last_layer_only=last_layer_only,
+                                            rooted_subtree=rooted_subtree)
         if extractor == 'random_matrix':
             model.trainable = False
         return model
@@ -53,12 +56,13 @@ def get_graph_embedder_extractor(embedder_extractor, num_graphs, num_features):
     raise ValueError
 
 def train_embeddings(dataset_name, wl_extractor, embedder_extractor,
-                     max_depth, num_features, k, num_epochs, lbda, last_layer_only):
+                     max_depth, num_features, k, num_epochs, lbda, last_layer_only, rooted_subtree):
     graph_inputs = dataset.read_dortmund(dataset_name,
                                          with_edge_features=False,
                                          standardize=True)
     num_graphs = len(graph_inputs[0])
-    wl_embedder = get_graph_wl_extractor(wl_extractor, max_depth, num_features, last_layer_only)
+    wl_embedder = get_graph_wl_extractor(wl_extractor, max_depth, num_features,
+                                         last_layer_only, rooted_subtree)
     graph_embedder = get_graph_embedder_extractor(embedder_extractor, num_graphs, num_features)
     wl_embedder_file, graph_embedder_file, csv_file = get_weight_filenames(dataset_name)
     num_batchs = math.ceil(num_graphs // (k+1))
@@ -95,6 +99,7 @@ if __name__ == '__main__':
     parser.add_argument('--last_layer_only', type=bool, default=False, help='Use only vocabulary of biggest radius.')
     parser.add_argument('--num_tests', type=int, default=10, help='Number of repetitions')
     parser.add_argument('--device', default='0', help='Index of the target GPU')
+    parser.add_argument('--rooted_subtree', type=bool, default=False, help='Factorize order 1 approximation of Chebychev.')
     args = parser.parse_args()
     departure_time = utils.get_now()
     print(departure_time)
@@ -107,7 +112,8 @@ if __name__ == '__main__':
                 print(utils.str_from_args(args))
                 train_embeddings(args.task, args.wl_extractor, args.embedder_extractor,
                                  args.max_depth, args.num_features, args.k,
-                                 args.num_epochs, args.lbda, args.last_layer_only)
+                                 args.num_epochs, args.lbda, args.last_layer_only,
+                                 args.rooted_sutree)
                 cur_acc, _ = baselines.evaluate_embeddings(args.task, num_tests=60, final=True)
                 accs.append(cur_acc)
                 print('')

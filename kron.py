@@ -68,7 +68,8 @@ class ConvolutionalKronCoarsener(tf.keras.models.Model):
         super(ConvolutionalKronCoarsener, self).__init__()
         self.output_dim = output_dim
         self.fc_in = tf.keras.layers.Dense(num_features, activation='relu')
-        self.blocks = [gcn.GraphConvolution(num_features, auto_normalize=True, activation=activation)
+        self.blocks = [gcn.GraphConvolution(num_features, auto_normalize=True,
+                                            activation=activation, rooted_subtree=False)
                        for _ in range(num_stages)]
         self.coarsener = KronCoarsening()
         self.fc_out = tf.keras.layers.Dense(output_dim, activation='linear')
