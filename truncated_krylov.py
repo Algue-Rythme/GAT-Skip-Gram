@@ -14,7 +14,6 @@ class KrylovBlock(tf.keras.layers.Layer):
         super(KrylovBlock, self).__init__()
         self.num_features = num_features
         self.num_hops = num_hops
-        self.fc = tf.keras.layers.Dense(num_features)
         self.fc = tf.keras.layers.Dense(num_features, activation='tanh')
 
     def build(self, input_shape):
