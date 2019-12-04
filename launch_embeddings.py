@@ -113,7 +113,7 @@ if __name__ == '__main__':
                 train_embeddings(args.task, args.wl_extractor, args.embedder_extractor,
                                  args.max_depth, args.num_features, args.k,
                                  args.num_epochs, args.lbda, args.last_layer_only,
-                                 args.rooted_sutree)
+                                 args.rooted_subtree)
                 cur_acc, _ = baselines.evaluate_embeddings(args.task, num_tests=60, final=True)
                 accs.append(cur_acc)
                 print('')
