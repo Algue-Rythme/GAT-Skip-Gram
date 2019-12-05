@@ -67,10 +67,10 @@ def train_epoch(wl_embedder, graph_embedder,
             graph_embeds = tf.stack(graph_embeds)
             similarity = tf.einsum('if,jf->ij', graph_embeds, nodes_tensor)
             loss = tf.nn.weighted_cross_entropy_with_logits(labels, similarity, lbda*float(k))
-        G_weights = graph_embedder.get_weights_from_indices(graph_indexes)
-        WL_weights = wl_embedder.trainable_variables
-        dG, dWL = tape.gradient(loss, [G_weights, WL_weights])
-        optimizer_G.apply_gradients(zip(dG, G_weights))
-        optimizer_WL.apply_gradients(zip(dWL, WL_weights))
+        g_weights = graph_embedder.get_weights_from_indices(graph_indexes)
+        wl_weights = wl_embedder.trainable_variables
+        dG, dWL = tape.gradient(loss, [g_weights, wl_weights])
+        optimizer_G.apply_gradients(zip(dG, g_weights))
+        optimizer_WL.apply_gradients(zip(dWL, wl_weights))
         acc = get_updated_metric(metric, labels, similarity, k)
         progbar.update(step+1, [('loss', float(loss.numpy().mean())), ('acc', acc)])

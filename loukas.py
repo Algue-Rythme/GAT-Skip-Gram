@@ -33,7 +33,7 @@ class ConvolutionalLoukasCoarsener(tf.keras.models.Model):
             elif block_layer == 'gat':
                 block = gat.GraphAttention(num_features, attn_heads=2, attn_heads_reduction='average')
             elif block_layer == 'krylov':
-                block = truncated_krylov.KrylovBlock(num_features, num_hops=4)
+                block = truncated_krylov.KrylovBlock(num_features, num_hops=2)
             else:
                 raise ValueError
             self.blocks.append(block)

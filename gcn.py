@@ -8,19 +8,6 @@ It also support different parameter for order 0 coefficient in Chebychev expansi
 import tensorflow as tf
 
 
-def get_degrees(A):
-    return tf.math.reduce_sum(A, axis=1)
-
-def normalize_adjacency(A, rooted_subtree):
-    A = A + tf.eye(num_rows=A.shape[0])
-    D = get_degrees(A)
-    D = tf.linalg.diag(tf.math.rsqrt(D))
-    A = D @ A @ D
-    if rooted_subtree:
-        A = tf.linalg.set_diag(A, tf.zeros(shape=int(A.shape[0]), dtype=tf.float32))
-    return A
-
-
 class GraphConvolution(tf.keras.layers.Layer):
 
     def __init__(self,

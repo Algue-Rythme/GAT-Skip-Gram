@@ -22,7 +22,7 @@ class KrylovBlock(tf.keras.layers.Layer):
     def call(self, inputs):
         X = inputs[0]  # Node features (N x F)
         A = inputs[1]  # normalized Adjacency matrix (N x N)
-        L = A  # utils.build_laplacian(A)
+        L = utils.normalize_adjacency(A, rooted_subtree=False, identity=True)
         L_pow_X = X
         H = [L_pow_X]
         for _ in range(self.num_hops - 1):
