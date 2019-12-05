@@ -6,6 +6,7 @@ It also support different parameter for order 0 coefficient in Chebychev expansi
 """
 
 import tensorflow as tf
+import utils
 
 
 class GraphConvolution(tf.keras.layers.Layer):
@@ -93,10 +94,10 @@ class GraphConvolution(tf.keras.layers.Layer):
         X = inputs[0]  # Node features (N x F)
         A = inputs[1]  # normalized Adjacency matrix (N x N)
         if self.auto_normalize:
-            A = normalize_adjacency(A, self.rooted_subtree)
+            A = utils.normalize_adjacency(A, self.rooted_subtree)
         y = A @ X @ self.kernel
         if self.rooted_subtree:
-            D = get_degrees(A)
+            D = utils.get_degrees(A)
             Dinv = 1. / D
             y = y + tf.expand_dims(Dinv, axis=-1) * (X @ self.rooted_kernel)
         if self.edge_kernel is not None:
