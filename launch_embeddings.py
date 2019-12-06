@@ -125,7 +125,7 @@ if __name__ == '__main__':
                 train_embeddings(args.task, args.wl_extractor, args.embedder_extractor,
                                  args.max_depth, args.num_features, args.k,
                                  args.num_epochs, args.lbda, args.last_layer_only)
-                cur_acc, _ = baselines.evaluate_embeddings(args.task, num_tests=60, final=True)
+                cur_acc, _ = baselines.evaluate_embeddings(args.task, num_tests=60, final=True, low_memory=True)
                 accs.append(cur_acc)
                 print('')
             acc_avg = tf.math.reduce_mean(accs)
