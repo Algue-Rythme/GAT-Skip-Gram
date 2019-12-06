@@ -78,7 +78,7 @@ def train_classification(dataset_name, coarsener, num_epochs, batch_size, num_st
     best_epoch, best_acc = 0, 0.
     for epoch in range(num_epochs):
         print('Epoch %d/%d'%(epoch+1, num_epochs))
-        lr = 0.002 * np.math.pow(1.1, - 50.*(epoch / num_epochs))
+        lr = 0.0002 * np.math.pow(1.1, - 50.*(epoch / num_epochs))
         optimizer = tf.keras.optimizers.Adam(lr)
         train_single_epoch(x_train, y_train, model, optimizer, batch_size)
         print('Validation set: ')
