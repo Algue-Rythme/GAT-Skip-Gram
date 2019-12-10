@@ -85,3 +85,17 @@ def normalize_adjacency(A, rooted_subtree, identity=True):
     if rooted_subtree:
         A = tf.linalg.set_diag(A, tf.zeros(shape=int(A.shape[0]), dtype=tf.float32))
     return A
+
+def dispatch(graph_inputs, index):
+    return [graph_input[index] for graph_input in graph_inputs]
+
+def get_weight_filenames(dataset_name):
+    try:
+        os.mkdir(dataset_name+'_weights')
+    except FileExistsError:
+        pass
+    finally:
+        wl_embedder_file = os.path.join(dataset_name+'_weights', 'wl_embedder.h5')
+        graph_embedder_file = os.path.join(dataset_name+'_weights', 'graph_embedder.h5')
+        csv_file = os.path.join(dataset_name+'_weights', 'graph_embeddings.csv')
+    return wl_embedder_file, graph_embedder_file, csv_file

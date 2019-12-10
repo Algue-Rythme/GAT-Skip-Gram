@@ -1,6 +1,7 @@
 import random
 import numpy as np
 import tensorflow as tf
+import utils
 
 
 class GraphEmbedding(tf.keras.models.Model):
@@ -37,7 +38,7 @@ def get_dense_batch(wl_embedder, graph_inputs, k):
     nodes_tensor = []
     labels = []
     for i, index in enumerate(graph_indexes):
-        node_embeds = wl_embedder([graph_input[index] for graph_input in graph_inputs])
+        node_embeds = wl_embedder(utils.dispatch(graph_inputs, index))
         before, now, after = sum(graph_lengths[:i]), graph_lengths[i], sum(graph_lengths[i+1:])
         graph_indicator = before*[0.] + now*[1.] + after*[0.]
         labels.append(graph_indicator)

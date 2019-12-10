@@ -15,17 +15,6 @@ import truncated_krylov
 import utils
 
 
-def get_weight_filenames(dataset_name):
-    try:
-        os.mkdir(dataset_name+'_weights')
-    except FileExistsError:
-        pass
-    finally:
-        wl_embedder_file = os.path.join(dataset_name+'_weights', 'wl_embedder.h5')
-        graph_embedder_file = os.path.join(dataset_name+'_weights', 'graph_embedder.h5')
-        csv_file = os.path.join(dataset_name+'_weights', 'graph_embeddings.csv')
-    return wl_embedder_file, graph_embedder_file, csv_file
-
 def get_graph_wl_extractor(extractor, max_depth, num_features, last_layer_only):
     if extractor == 'gat':
         num_heads = 1
@@ -77,7 +66,7 @@ def train_embeddings(dataset_name, wl_extractor, embedder_extractor,
     wl_embedder = get_graph_wl_extractor(wl_extractor, max_depth, num_features,
                                          last_layer_only)
     graph_embedder = get_graph_embedder_extractor(embedder_extractor, num_graphs, num_features)
-    wl_embedder_file, graph_embedder_file, csv_file = get_weight_filenames(dataset_name)
+    wl_embedder_file, graph_embedder_file, csv_file = utils.get_weight_filenames(dataset_name)
     num_batchs = math.ceil(num_graphs // (k+1))
     for epoch in range(num_epochs):
         print('epoch %d/%d'%(epoch+1, num_epochs))

@@ -16,6 +16,39 @@ def print_pyramid(Call, Gall):
     loukas.plot_coarsening(Gall, Call[:-1])
     plt.show()
 
+
+def pooling(pooling_method, coarsening_matrix, X):
+    coarsening_matrix = coarsening_matrix.power(2)
+    coarsening_matrix = tf.constant(coarsening_matrix.todense(), dtype=tf.float32)
+    if pooling_method == 'mean':
+        return coarsening_matrix @ X
+    elif pooling_method == 'sum':
+        X = coarsening_matrix @ X
+        mask = tf.not_equal(coarsening_matrix, tf.constant(0., dtype=tf.float32))
+        indicator = tf.dtypes.cast(mask, tf.float32)
+        X = X * tf.reduce_sum(indicator, axis=-1, keepdims=True)
+        return X
+    elif pooling_method == 'max':
+        X = tf.einsum('nm,mf->nmf', coarsening_matrix, X)
+        X = tf.math.reduce_max(X, axis=-2)
+        return X
+    else:
+        raise ValueError
+
+def attempt_coarsening(coarsening_method, A, k, r):
+    G = graphs.Graph(A.numpy())
+    attempt = 1
+    while attempt > 0:
+        try:
+            _, _, Call, Gall = loukas.coarsen(G, K=k, r=r, method=coarsening_method)
+            attempt = 0
+        except scipy.sparse.linalg.ArpackError as e:
+            warnings.warn('attempt %d: '%attempt+str(e))
+            attempt += 1
+    Call.append(None)
+    return Call, Gall
+
+
 class ConvolutionalLoukasCoarsener(tf.keras.models.Model):
 
     def __init__(self, output_dim, num_stages, num_features, coarsening_method, pooling_method, block_layer):
@@ -52,48 +85,17 @@ class ConvolutionalLoukasCoarsener(tf.keras.models.Model):
                 embed, _ = self(graph_input)
                 f.write('\t'.join(map(str, embed.numpy().tolist()))+'\n')
 
-    def pooling(self, coarsening_matrix, X):
-        coarsening_matrix = coarsening_matrix.power(2)
-        coarsening_matrix = tf.constant(coarsening_matrix.todense(), dtype=tf.float32)
-        if self.pooling_method == 'mean':
-            return coarsening_matrix @ X
-        elif self.pooling_method == 'sum':
-            X = coarsening_matrix @ X
-            mask = tf.not_equal(coarsening_matrix, tf.constant(0., dtype=tf.float32))
-            indicator = tf.dtypes.cast(mask, tf.float32)
-            X = X * tf.reduce_sum(indicator, axis=-1, keepdims=True)
-            return X
-        elif self.pooling_method == 'max':
-            X = tf.einsum('nm,mf->nmf', coarsening_matrix, X)
-            X = tf.math.reduce_max(X, axis=-2)
-            return X
-        else:
-            raise ValueError
-
     def call_block(self, coarsening_matrix, G_reduced, X):
         A_reduced = G_reduced.W.todense().astype(dtype=np.float32)
         for block in self.blocks:
             X = block((X, A_reduced))
         if coarsening_matrix is not None:
-            X = self.pooling(coarsening_matrix, X)
+            X = pooling(self.pooling_method, coarsening_matrix, X)
         return X, A_reduced
-
-    def attempt_coarsening(self, A):
-        G = graphs.Graph(A.numpy())
-        attempt = 1
-        while attempt > 0:
-            try:
-                _, _, Call, Gall = loukas.coarsen(G, K=self.k, r=self.r, method=self.coarsening_method)
-                attempt = 0
-            except scipy.sparse.linalg.ArpackError as e:
-                warnings.warn('attempt %d: '%attempt+str(e))
-                attempt += 1
-        Call.append(None)
-        return Call, Gall
 
     def call(self, inputs):
         X, A = inputs
-        Call, Gall = self.attempt_coarsening(A)
+        Call, Gall = attempt_coarsening(self.coarsening_method, A, self.k, self.r)
         X = self.fc_in(X)
         assert len(Call) == len(Gall) and Gall
         for coarsening_matrix, G_reduced in zip(Call, Gall):

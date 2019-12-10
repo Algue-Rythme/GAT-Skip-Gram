@@ -126,7 +126,7 @@ class StackedGraphConvolution(tf.keras.models.Model):
 
     def call(self, inputs):
         x = inputs[0]
-        A = normalize_adjacency(inputs[1], self.rooted_subtree)
+        A = utils.normalize_adjacency(inputs[1], self.rooted_subtree)
         outputs = []
         for index, layer in enumerate(self.gc_layers):
             x = layer([x, A] + inputs[2:])
