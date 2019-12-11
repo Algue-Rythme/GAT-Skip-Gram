@@ -8,6 +8,7 @@ import loukas_coarsening.coarsening_utils as loukas
 import gat
 import gcn
 import truncated_krylov
+import utils
 
 
 def print_pyramid(Call, Gall):
@@ -35,6 +36,8 @@ def pooling(pooling_method, coarsening_matrix, X):
     else:
         raise ValueError
 
+
+@utils.memoize
 def attempt_coarsening(coarsening_method, A, k, r):
     G = graphs.Graph(A.numpy())
     attempt = 1

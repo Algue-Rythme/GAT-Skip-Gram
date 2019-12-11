@@ -7,6 +7,7 @@ import tensorflow as tf
 import baselines
 import dataset
 import gcn
+import krylov
 import loukas
 import utils
 
@@ -23,7 +24,7 @@ class DifferentiablePooler(tf.keras.layers.Layer):
     def call(self, inputs):
         X, A, C = inputs[:3]
         A = utils.normalize_adjacency(A, rooted_subtree=False)
-        X = self.gnn_in((X, A))
+        # X = self.gnn_in((X, A))
         X = loukas.pooling(self.pooling_method, C, X)
         X = self.gnn_out(X)
         return X
@@ -45,20 +46,29 @@ class HierarchicalLoukas(tf.keras.models.Model):
         for _ in range(self.max_num_stages):
             pooling_layer = DifferentiablePooler(self.num_features, self.pooling_method)
             self.pooling_layers.append(pooling_layer)
-            wl_layer = gcn.GraphConvolution(self.num_features, auto_normalize=True)
+            wl_layer = krylov.KrylovBlock(num_features=num_features, num_hops=4)
             self.wl_layers.append(wl_layer)
+        self.fc_middle = tf.keras.layers.Dense(num_features, activation='relu')
+        self.fc_out = tf.keras.layers.Dense(num_features, activation='linear')
 
     def max_depth(self):
-        return self.max_num_stages
+        return self.max_num_stages + 1
 
     def features_dim(self):
         return self.num_features
 
+    def dump_to_csv(self, csv_file, graph_inputs):
+        with open(csv_file, 'w') as f:
+            for graph_input in zip(*graph_inputs):
+                _, context, _ = self(graph_input)
+                f.write('\t'.join(map(str, tf.squeeze(context[-1]).numpy().tolist()))+'\n')
+
+    @utils.memoize
     def coarsen(self, A):
         pooling_matrices, graphs = loukas.attempt_coarsening(self.coarsening_method, A, self.k, self.r)
         del pooling_matrices[-1]
         last_graph = graphs[-1]
-        for _ in range(self.max_depth() - len(graphs) + 1):
+        for _ in range(self.max_num_stages - len(graphs) + 1):
             pooling_matrices.append(scipy.sparse.identity(int(last_graph.N)))
             graphs.append(last_graph)
         pooling_matrices.append(None)
@@ -77,6 +87,14 @@ class HierarchicalLoukas(tf.keras.models.Model):
             vocab.append(wl_X)
             context.append(X)
             indicator.append(C.todense().astype(dtype=np.float32))
+            X = tf.stop_gradient(X)
+        vocab.append(X)  # f_{\theta} = identity
+        indicator.append(np.zeros(shape=(1, int(X.shape[0])), dtype=np.float32))
+        # X = self.fc_middle(X)
+        Xs = tf.math.reduce_mean(X, axis=-2, keepdims=True)
+        Xm = tf.math.reduce_max(X, axis=-2, keepdims=True)
+        X = self.fc_out(tf.concat([Xs, Xm], axis=-1))
+        context.append(X)
         return vocab, context, indicator
 
 
@@ -101,7 +119,10 @@ def forward_batch(model, graph_inputs, batch_size):
             vocab[depth].append(vocab_g[depth])
             context[depth].append(context_g[depth])
             indicator[depth].append(indicator_g[depth])
-    graph_lengths = [int(graph_inputs[0][index].shape[0]) for index in graph_indexes]  # TODO: indexed by depth
+    graph_lengths = [0] * max_depth
+    for depth in range(max_depth):
+        lengths = [int(word.shape[0]) for word in vocab[depth]]
+        graph_lengths[depth] = lengths
     return graph_lengths, vocab, context, indicator
 
 
@@ -118,7 +139,7 @@ def process_batch(model, graph_inputs, batch_size, lbda, metrics):
     for depth in range(max_depth):
         cur_vocab = tf.concat(vocab[depth], axis=0)
         for k in range(batch_size):
-            labels = get_current_labels(graph_lengths, depth, k, indicator)
+            labels = get_current_labels(graph_lengths[depth], depth, k, indicator)
             similarity = tf.einsum('if,jf->ij', context[depth][k], cur_vocab)
             loss = tf.nn.weighted_cross_entropy_with_logits(labels, similarity, lbda*float(batch_size))
             losses[depth].append(tf.math.reduce_mean(loss))
@@ -153,7 +174,7 @@ def train_embeddings(dataset_name,
                                          standardize=True)
     num_graphs = len(graph_inputs[0])
     model = HierarchicalLoukas(num_features=num_features,
-                               max_num_stages=max_depth,
+                               max_num_stages=max_depth-1,
                                coarsening_method='variation_neighborhood',
                                pooling_method='mean')
     _, graph_embedder_file, csv_file = utils.get_weight_filenames(dataset_name)

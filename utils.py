@@ -1,4 +1,5 @@
 import datetime
+import functools
 import os
 import random
 import warnings
@@ -99,3 +100,13 @@ def get_weight_filenames(dataset_name):
         graph_embedder_file = os.path.join(dataset_name+'_weights', 'graph_embedder.h5')
         csv_file = os.path.join(dataset_name+'_weights', 'graph_embeddings.csv')
     return wl_embedder_file, graph_embedder_file, csv_file
+
+def memoize(func):
+    cache = func.cache = {}
+    @functools.wraps(func)
+    def memoized_func(*l_args):
+        key = tuple([id(arg) for arg in l_args])
+        if key not in cache:
+            cache[key] = func(*l_args)
+        return cache[key]
+    return memoized_func
