@@ -105,9 +105,9 @@ if __name__ == '__main__':
     print(departure_time)
     if args.task in dataset.available_tasks():
         with tf.device('/gpu:'+args.device):
-            graph_inputs = dataset.read_dortmund(args.task,
-                                                 with_edge_features=False,
-                                                 standardize=True)
+            graphs = dataset.read_dortmund(args.task,
+                                           with_edge_features=False,
+                                           standardize=True)
             accs = []
             num_tests = args.num_tests
             for test in range(num_tests):
@@ -116,7 +116,7 @@ if __name__ == '__main__':
                 restart = True
                 while restart:
                     try:
-                        train_embeddings(args.task, graph_inputs, args.wl_extractor, args.embedder_extractor,
+                        train_embeddings(args.task, graphs, args.wl_extractor, args.embedder_extractor,
                                          args.max_depth, args.num_features, args.k,
                                          args.num_epochs, args.lbda, args.last_layer_only)
                         cur_acc, _ = baselines.evaluate_embeddings(args.task, num_tests=60, final=True, low_memory=True)

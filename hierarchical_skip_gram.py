@@ -8,24 +8,35 @@ import scipy
 import tensorflow as tf
 import baselines
 import dataset
+import gat
 import gcn
 import truncated_krylov
 import loukas
 import utils
 
+def get_gnn(num_features, gnn_type):
+    if gnn_type == 'gcn':
+        return gcn.GraphConvolution(num_features, activation='relu', auto_normalize=True)
+    elif gnn_type == 'krylov':
+        return truncated_krylov.KrylovBlock(num_features=num_features, num_hops=4)
+    elif gnn_type == 'gat':
+        return gat.GraphAttention(num_features, attn_heads=2, attn_heads_reduction='average')
+    else:
+        raise ValueError
+
 
 class DifferentiablePooler(tf.keras.layers.Layer):
 
-    def __init__(self, num_features, pooling_method):
+    def __init__(self, num_features, pooling_method, gnn_type):
         super(DifferentiablePooler, self).__init__()
         self.num_features = num_features
         self.pooling_method = pooling_method
-        self.gnn_in = gcn.GraphConvolution(self.num_features, activation='relu', auto_normalize=False)
+        self.gnn_type = gnn_type
+        self.gnn_in = get_gnn(self.num_features, self.gnn_type)
         self.gnn_out = tf.keras.layers.Dense(self.num_features, activation='relu')
 
     def call(self, inputs):
         X, A, C = inputs[:3]
-        A = utils.normalize_adjacency(A, rooted_subtree=False)
         X = self.gnn_in((X, A))
         X = loukas.pooling(self.pooling_method, C, X)
         X = self.gnn_out(X)
@@ -34,7 +45,7 @@ class DifferentiablePooler(tf.keras.layers.Layer):
 
 class HierarchicalLoukas(tf.keras.models.Model):
 
-    def __init__(self, num_features, max_num_stages, coarsening_method, pooling_method, collapse):
+    def __init__(self, num_features, max_num_stages, coarsening_method, pooling_method, gnn_type, collapse):
         super(HierarchicalLoukas, self).__init__()
         self.k = 6
         self.r = 0.99
@@ -42,17 +53,19 @@ class HierarchicalLoukas(tf.keras.models.Model):
         self.max_num_stages = max_num_stages-1 if collapse else max_num_stages
         self.coarsening_method = coarsening_method
         self.pooling_method = pooling_method
+        self.gnn_type = gnn_type
         self.collapse = collapse
         self.fc_in = tf.keras.layers.Dense(self.num_features, activation='relu')
         self.pooling_layers = []
         self.wl_layers = []
         for _ in range(self.max_num_stages):
-            pooling_layer = DifferentiablePooler(self.num_features, self.pooling_method)
+            pooling_layer = DifferentiablePooler(self.num_features, self.pooling_method, self.gnn_type)
             self.pooling_layers.append(pooling_layer)
-            wl_layer = truncated_krylov.KrylovBlock(num_features=num_features, num_hops=4)
+            wl_layer = get_gnn(self.num_features, self.gnn_type)
             self.wl_layers.append(wl_layer)
-        self.fc_middle = tf.keras.layers.Dense(num_features, activation='relu')
-        self.fc_out = tf.keras.layers.Dense(num_features, activation='linear')
+        if self.collapse:
+            self.fc_middle = tf.keras.layers.Dense(num_features, activation='relu')
+            self.fc_out = tf.keras.layers.Dense(num_features, activation='linear')
 
     def max_depth(self):
         return self.max_num_stages+1 if self.collapse else self.max_num_stages
@@ -96,9 +109,8 @@ class HierarchicalLoukas(tf.keras.models.Model):
             vocab.append(wl_X)
             context.append(X)
             indicator.append(C.todense().astype(dtype=np.float32))
-            # X = tf.stop_gradient(X)
         if self.collapse:
-            vocab.append(X)  # f_{\theta} = identity
+            vocab.append(X)
             indicator.append(np.zeros(shape=(1, int(X.shape[0])), dtype=np.float32))
             X = self.fc_middle(X)
             Xs = tf.math.reduce_mean(X, axis=-2, keepdims=True)
@@ -151,7 +163,8 @@ def process_batch(model, graph_inputs, batch_size, lbda, metrics):
         for k in range(batch_size):
             labels = get_current_labels(graph_lengths[depth], depth, k, indicator)
             similarity = tf.einsum('if,jf->ij', context[depth][k], cur_vocab)
-            loss = tf.nn.weighted_cross_entropy_with_logits(labels, similarity, lbda*float(batch_size))
+            weights = lbda *  tf.size(labels, out_type=tf.float32) / tf.reduce_sum(labels)
+            loss = tf.nn.weighted_cross_entropy_with_logits(labels, similarity, weights)
             losses[depth].append(tf.math.reduce_mean(loss))
             update_metric(metrics[depth], labels, similarity)
         losses[depth] = tf.math.reduce_mean(losses[depth])
@@ -179,18 +192,18 @@ def train_epoch(model, graph_inputs,
 def train_embeddings(dataset_name, graph_inputs,
                      max_depth, num_features, batch_size,
                      num_epochs, lbda, verbose):
-    
     num_graphs = len(graph_inputs[0])
     model = HierarchicalLoukas(num_features=num_features,
                                max_num_stages=max_depth,
                                coarsening_method='variation_neighborhood',
                                pooling_method='sum',
+                               gnn_type='krylov',
                                collapse=False)
     _, graph_embedder_file, csv_file = utils.get_weight_filenames(dataset_name)
     num_batchs = math.ceil(num_graphs // (batch_size+1))
     for epoch in range(num_epochs):
         print('epoch %d/%d'%(epoch+1, num_epochs))
-        lr = 0.002 * np.math.pow(1.1, - 50.*(epoch / num_epochs))
+        lr = 1e-4 * np.math.pow(1.1, - 50.*(epoch / num_epochs))
         train_epoch(model, graph_inputs,
                     batch_size, num_batchs, lbda, lr)
         if epoch+1 == num_epochs or (epoch+1)%5 == 0 or verbose == 1:
@@ -221,9 +234,9 @@ if __name__ == '__main__':
     print(departure_time)
     if args.task in dataset.available_tasks():
         with tf.device('/gpu:'+args.device):
-            graph_inputs = dataset.read_dortmund(args.task,
-                                                 with_edge_features=False,
-                                                 standardize=True)
+            all_graphs = dataset.read_dortmund(args.task,
+                                           with_edge_features=False,
+                                           standardize=True)
             accs = []
             num_tests = args.num_tests
             for test in range(num_tests):
@@ -232,13 +245,16 @@ if __name__ == '__main__':
                 restart = True
                 while restart:
                     try:
-                        train_embeddings(args.task, graph_inputs, args.max_depth, args.num_features,
+                        train_embeddings(args.task, all_graphs, args.max_depth, args.num_features,
                                          args.batch_size, args.num_epochs, args.lbda, args.verbose)
                         cur_acc, _ = baselines.evaluate_embeddings(args.task, num_tests=60, final=True, low_memory=True)
                         restart = False
                     except Exception as e:
                         print(e.__doc__)
-                        print(e)
+                        try:
+                            print(e)
+                        except:
+                            pass
                         logging.error(traceback.format_exc())
                         restart = True
                 accs.append(cur_acc)

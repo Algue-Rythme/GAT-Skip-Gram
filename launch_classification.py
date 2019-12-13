@@ -114,13 +114,13 @@ if __name__ == '__main__':
     print(departure_time)
     if args.task in dataset.available_tasks():
         with tf.device('/gpu:'+args.device):
-            graph_inputs = dataset.read_dortmund(args.task,
-                                                 with_edge_features=False,
-                                                 standardize=True)
+            graphs = dataset.read_dortmund(args.task,
+                                           with_edge_features=False,
+                                           standardize=True)
             restart = True
             while restart:
                 try:
-                    acc = train_classification(args.task, graph_inputs, args.coarsener, args.num_epochs,
+                    acc = train_classification(args.task, graphs, args.coarsener, args.num_epochs,
                                                args.batch_size, args.num_stages, args.num_features)
                     utils.record_args('classification', departure_time, args.task, args, acc, 0.)
                     restart = False
