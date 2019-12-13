@@ -1,13 +1,15 @@
 import argparse
+import logging
 import math
 import random
+import traceback
 import numpy as np
 import scipy
 import tensorflow as tf
 import baselines
 import dataset
 import gcn
-import krylov
+import truncated_krylov
 import loukas
 import utils
 
@@ -24,7 +26,7 @@ class DifferentiablePooler(tf.keras.layers.Layer):
     def call(self, inputs):
         X, A, C = inputs[:3]
         A = utils.normalize_adjacency(A, rooted_subtree=False)
-        # X = self.gnn_in((X, A))
+        X = self.gnn_in((X, A))
         X = loukas.pooling(self.pooling_method, C, X)
         X = self.gnn_out(X)
         return X
@@ -32,27 +34,28 @@ class DifferentiablePooler(tf.keras.layers.Layer):
 
 class HierarchicalLoukas(tf.keras.models.Model):
 
-    def __init__(self, num_features, max_num_stages, coarsening_method, pooling_method):
+    def __init__(self, num_features, max_num_stages, coarsening_method, pooling_method, collapse):
         super(HierarchicalLoukas, self).__init__()
         self.k = 6
         self.r = 0.99
         self.num_features = num_features
-        self.max_num_stages = max_num_stages
+        self.max_num_stages = max_num_stages-1 if collapse else max_num_stages
         self.coarsening_method = coarsening_method
         self.pooling_method = pooling_method
+        self.collapse = collapse
         self.fc_in = tf.keras.layers.Dense(self.num_features, activation='relu')
         self.pooling_layers = []
         self.wl_layers = []
         for _ in range(self.max_num_stages):
             pooling_layer = DifferentiablePooler(self.num_features, self.pooling_method)
             self.pooling_layers.append(pooling_layer)
-            wl_layer = krylov.KrylovBlock(num_features=num_features, num_hops=4)
+            wl_layer = truncated_krylov.KrylovBlock(num_features=num_features, num_hops=4)
             self.wl_layers.append(wl_layer)
         self.fc_middle = tf.keras.layers.Dense(num_features, activation='relu')
         self.fc_out = tf.keras.layers.Dense(num_features, activation='linear')
 
     def max_depth(self):
-        return self.max_num_stages + 1
+        return self.max_num_stages+1 if self.collapse else self.max_num_stages
 
     def features_dim(self):
         return self.num_features
@@ -61,7 +64,13 @@ class HierarchicalLoukas(tf.keras.models.Model):
         with open(csv_file, 'w') as f:
             for graph_input in zip(*graph_inputs):
                 _, context, _ = self(graph_input)
-                f.write('\t'.join(map(str, tf.squeeze(context[-1]).numpy().tolist()))+'\n')
+                if self.collapse:
+                    embed = tf.squeeze(context[-1])
+                else:
+                    max_features = [tf.math.reduce_max(t, axis=0) for t in context]
+                    mean_features = [tf.math.reduce_mean(t, axis=0) for t in context]
+                    embed = tf.concat(max_features + mean_features, axis=0)
+                f.write('\t'.join(map(str, embed.numpy().tolist()))+'\n')
 
     @utils.memoize
     def coarsen(self, A):
@@ -87,14 +96,15 @@ class HierarchicalLoukas(tf.keras.models.Model):
             vocab.append(wl_X)
             context.append(X)
             indicator.append(C.todense().astype(dtype=np.float32))
-            X = tf.stop_gradient(X)
-        vocab.append(X)  # f_{\theta} = identity
-        indicator.append(np.zeros(shape=(1, int(X.shape[0])), dtype=np.float32))
-        # X = self.fc_middle(X)
-        Xs = tf.math.reduce_mean(X, axis=-2, keepdims=True)
-        Xm = tf.math.reduce_max(X, axis=-2, keepdims=True)
-        X = self.fc_out(tf.concat([Xs, Xm], axis=-1))
-        context.append(X)
+            # X = tf.stop_gradient(X)
+        if self.collapse:
+            vocab.append(X)  # f_{\theta} = identity
+            indicator.append(np.zeros(shape=(1, int(X.shape[0])), dtype=np.float32))
+            X = self.fc_middle(X)
+            Xs = tf.math.reduce_mean(X, axis=-2, keepdims=True)
+            Xm = tf.math.reduce_max(X, axis=-2, keepdims=True)
+            X = self.fc_out(tf.concat([Xs, Xm], axis=-1))
+            context.append(X)
         return vocab, context, indicator
 
 
@@ -166,7 +176,7 @@ def train_epoch(model, graph_inputs,
                 for i, metric in enumerate(metrics)])
 
 
-def train_embeddings(dataset_name, 
+def train_embeddings(dataset_name,
                      max_depth, num_features, batch_size,
                      num_epochs, lbda, verbose):
     graph_inputs = dataset.read_dortmund(dataset_name,
@@ -174,9 +184,10 @@ def train_embeddings(dataset_name,
                                          standardize=True)
     num_graphs = len(graph_inputs[0])
     model = HierarchicalLoukas(num_features=num_features,
-                               max_num_stages=max_depth-1,
+                               max_num_stages=max_depth,
                                coarsening_method='variation_neighborhood',
-                               pooling_method='mean')
+                               pooling_method='sum',
+                               collapse=False)
     _, graph_embedder_file, csv_file = utils.get_weight_filenames(dataset_name)
     num_batchs = math.ceil(num_graphs // (batch_size+1))
     for epoch in range(num_epochs):
@@ -199,9 +210,9 @@ if __name__ == '__main__':
     tf.random.set_seed(seed + 146)
     parser = argparse.ArgumentParser()
     parser.add_argument('--task', help='Task to execute. Only %s are currently available.'%str(dataset.available_tasks()))
-    parser.add_argument('--max_depth', type=int, default=1, help='Depth of extractor.')
+    parser.add_argument('--max_depth', type=int, default=3, help='Depth of extractor.')
     parser.add_argument('--num_features', type=int, default=128, help='Size of feature space')
-    parser.add_argument('--batch_size', type=int, default=8, help='Size of batchs')
+    parser.add_argument('--batch_size', type=int, default=32, help='Size of batchs')
     parser.add_argument('--num_epochs', type=int, default=100, help='Number of epochs')
     parser.add_argument('--lbda', type=float, default=1., help='Weight for positive samples')
     parser.add_argument('--num_tests', type=int, default=10, help='Number of repetitions')
@@ -217,9 +228,18 @@ if __name__ == '__main__':
             for test in range(num_tests):
                 print('Test %d'%(test+1))
                 print(utils.str_from_args(args))
-                train_embeddings(args.task, args.max_depth, args.num_features,
-                                 args.batch_size,args.num_epochs, args.lbda, args.verbose)
-                cur_acc, _ = baselines.evaluate_embeddings(args.task, num_tests=60, final=True, low_memory=True)
+                restart = True
+                while restart:
+                    try:
+                        train_embeddings(args.task, args.max_depth, args.num_features,
+                                         args.batch_size, args.num_epochs, args.lbda, args.verbose)
+                        cur_acc, _ = baselines.evaluate_embeddings(args.task, num_tests=60, final=True, low_memory=True)
+                        restart = False
+                    except Exception as e:
+                            print(e.__doc__)
+                            print(e.message)
+                            logging.error(traceback.format_exc())
+                            restart = True
                 accs.append(cur_acc)
                 print('')
             acc_avg = tf.math.reduce_mean(accs)

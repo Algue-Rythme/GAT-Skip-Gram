@@ -1,6 +1,8 @@
 import argparse
+import logging
 import os
 import random
+import traceback
 import numpy as np
 import tensorflow as tf
 import dataset
@@ -115,9 +117,18 @@ if __name__ == '__main__':
     print(departure_time)
     if args.task in dataset.available_tasks():
         with tf.device('/gpu:'+args.device):
-            acc = train_classification(args.task, args.coarsener, args.num_epochs,
-                                    args.batch_size, args.num_stages, args.num_features)
-            utils.record_args('classification', departure_time, args.task, args, acc, 0.)
+            restart = True
+            while restart:
+                try:
+                    acc = train_classification(args.task, args.coarsener, args.num_epochs,
+                                               args.batch_size, args.num_stages, args.num_features)
+                    utils.record_args('classification', departure_time, args.task, args, acc, 0.)
+                    restart = False
+                except Exception as e:
+                    print(e.__doc__)
+                    print(e.message)
+                    logging.error(traceback.format_exc())
+                    restart = True
             print('Final accuracy: %.2f%%'%(acc*100.))
             print(utils.str_from_args(args))
     else:
