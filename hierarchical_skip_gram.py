@@ -176,12 +176,10 @@ def train_epoch(model, graph_inputs,
                 for i, metric in enumerate(metrics)])
 
 
-def train_embeddings(dataset_name,
+def train_embeddings(dataset_name, graph_inputs,
                      max_depth, num_features, batch_size,
                      num_epochs, lbda, verbose):
-    graph_inputs = dataset.read_dortmund(dataset_name,
-                                         with_edge_features=False,
-                                         standardize=True)
+    
     num_graphs = len(graph_inputs[0])
     model = HierarchicalLoukas(num_features=num_features,
                                max_num_stages=max_depth,
@@ -223,6 +221,9 @@ if __name__ == '__main__':
     print(departure_time)
     if args.task in dataset.available_tasks():
         with tf.device('/gpu:'+args.device):
+            graph_inputs = dataset.read_dortmund(args.task,
+                                                 with_edge_features=False,
+                                                 standardize=True)
             accs = []
             num_tests = args.num_tests
             for test in range(num_tests):
@@ -231,15 +232,15 @@ if __name__ == '__main__':
                 restart = True
                 while restart:
                     try:
-                        train_embeddings(args.task, args.max_depth, args.num_features,
+                        train_embeddings(args.task, graph_inputs, args.max_depth, args.num_features,
                                          args.batch_size, args.num_epochs, args.lbda, args.verbose)
                         cur_acc, _ = baselines.evaluate_embeddings(args.task, num_tests=60, final=True, low_memory=True)
                         restart = False
                     except Exception as e:
-                            print(e.__doc__)
-                            print(e.message)
-                            logging.error(traceback.format_exc())
-                            restart = True
+                        print(e.__doc__)
+                        print(e.message)
+                        logging.error(traceback.format_exc())
+                        restart = True
                 accs.append(cur_acc)
                 print('')
             acc_avg = tf.math.reduce_mean(accs)

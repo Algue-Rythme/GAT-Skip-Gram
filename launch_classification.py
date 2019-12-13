@@ -62,14 +62,11 @@ def evaluate(x_test, y_test, model):
         progbar.update(batch+1, [('loss', float(loss.numpy().mean())), ('acc', acc_avg)] + list(infos.items()))
     return tf.math.reduce_mean(accs), tf.math.reduce_std(accs)
 
-def train_classification(dataset_name, coarsener, num_epochs, batch_size, num_stages, num_features):
+def train_classification(dataset_name, graph_inputs, coarsener, num_epochs, batch_size, num_stages, num_features):
     try:
         os.mkdir(dataset_name+'_weights')
     except FileExistsError:
         pass
-    graph_inputs = dataset.read_dortmund(dataset_name,
-                                         with_edge_features=False,
-                                         standardize=True)
     labels, num_labels = dataset.read_graph_labels(dataset_name)
     (x_train, y_train), (x_val, y_val) = utils.train_test_split(*graph_inputs, labels, split_ratio=0.2)
     (x_val, y_val), (x_test, y_test) = utils.train_test_split(*x_val, y_val, split_ratio=0.5)
@@ -117,10 +114,13 @@ if __name__ == '__main__':
     print(departure_time)
     if args.task in dataset.available_tasks():
         with tf.device('/gpu:'+args.device):
+            graph_inputs = dataset.read_dortmund(args.task,
+                                                 with_edge_features=False,
+                                                 standardize=True)
             restart = True
             while restart:
                 try:
-                    acc = train_classification(args.task, args.coarsener, args.num_epochs,
+                    acc = train_classification(args.task, graph_inputs, args.coarsener, args.num_epochs,
                                                args.batch_size, args.num_stages, args.num_features)
                     utils.record_args('classification', departure_time, args.task, args, acc, 0.)
                     restart = False
