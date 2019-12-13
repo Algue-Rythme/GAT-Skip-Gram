@@ -126,7 +126,7 @@ if __name__ == '__main__':
                     restart = False
                 except Exception as e:
                     print(e.__doc__)
-                    print(e.message)
+                    print(e)
                     logging.error(traceback.format_exc())
                     restart = True
             print('Final accuracy: %.2f%%'%(acc*100.))
