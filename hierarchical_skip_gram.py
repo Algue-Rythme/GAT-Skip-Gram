@@ -109,6 +109,7 @@ class HierarchicalLoukas(tf.keras.models.Model):
             vocab.append(wl_X)
             context.append(X)
             indicator.append(C.todense().astype(dtype=np.float32))
+            # X = tf.stop_gradient(X)
         if self.collapse:
             vocab.append(X)
             indicator.append(np.zeros(shape=(1, int(X.shape[0])), dtype=np.float32))
@@ -191,13 +192,13 @@ def train_epoch(model, graph_inputs,
 
 def train_embeddings(dataset_name, graph_inputs,
                      max_depth, num_features, batch_size,
-                     num_epochs, lbda, verbose):
+                     num_epochs, lbda, gnn_type, verbose):
     num_graphs = len(graph_inputs[0])
     model = HierarchicalLoukas(num_features=num_features,
                                max_num_stages=max_depth,
                                coarsening_method='variation_neighborhood',
                                pooling_method='sum',
-                               gnn_type='krylov',
+                               gnn_type=gnn_type,
                                collapse=False)
     _, graph_embedder_file, csv_file = utils.get_weight_filenames(dataset_name)
     num_batchs = math.ceil(num_graphs // (batch_size+1))
@@ -226,6 +227,7 @@ if __name__ == '__main__':
     parser.add_argument('--batch_size', type=int, default=32, help='Size of batchs')
     parser.add_argument('--num_epochs', type=int, default=100, help='Number of epochs')
     parser.add_argument('--lbda', type=float, default=1., help='Weight for positive samples')
+    parser.add_argument('--gnn_type', default='krylov', help='Nature of vocabulary extractor')
     parser.add_argument('--num_tests', type=int, default=10, help='Number of repetitions')
     parser.add_argument('--device', default='0', help='Index of the target GPU')
     parser.add_argument('--verbose', type=int, default=0, help='0 or 1.')
@@ -246,7 +248,7 @@ if __name__ == '__main__':
                 while restart:
                     try:
                         train_embeddings(args.task, all_graphs, args.max_depth, args.num_features,
-                                         args.batch_size, args.num_epochs, args.lbda, args.verbose)
+                                         args.batch_size, args.num_epochs, args.lbda, args.gnn_type, args.verbose)
                         cur_acc, _ = baselines.evaluate_embeddings(args.task, num_tests=60, final=True, low_memory=True)
                         restart = False
                     except Exception as e:
