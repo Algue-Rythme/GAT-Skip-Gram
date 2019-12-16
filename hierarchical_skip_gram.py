@@ -16,7 +16,7 @@ import utils
 
 def get_gnn(num_features, gnn_type):
     if gnn_type == 'gcn':
-        return gcn.GraphConvolution(num_features, activation='relu', auto_normalize=True)
+        return gcn.GraphConvolution(num_features, activation='tanh', auto_normalize=True)
     elif gnn_type == 'krylov':
         return truncated_krylov.KrylovBlock(num_features=num_features, num_hops=4)
     elif gnn_type == 'gat':
