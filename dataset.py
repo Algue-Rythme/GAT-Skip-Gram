@@ -57,7 +57,8 @@ def get_node_features(prefix, standardize, graph_ids, new_node_ids, graph_adj):
     if node_attributes is not None and labels is not None:
         node_features = tf.concat([node_features, labels], axis=1)
     if node_attributes is None and labels is None:
-        node_features = tf.zeros(shape=(len(new_node_ids), 1), dtype=tf.float32)
+        node_features = [tf.math.reduce_sum(adj, axis=-1, keepdims=True) for adj in graph_adj]
+        return node_features
     del node_attributes, labels
     num_node_features = int(node_features.shape[1])
     graph_node_features = [np.zeros(shape=(len(nodes), num_node_features), dtype=np.float32) for nodes in graph_adj]
@@ -156,5 +157,5 @@ def available_tasks():
              'PTC_FM', 'NCI1', 'PTC_FR', 'DD',
              'Letter-high', 'Letter-med', 'Letter-low',
              'REDDIT_BINARY', 'COLLAB', 'MCF-7', 'MCF-7H',
-             'DLA']
+             'DLA', 'IMDB-BINARY']
     return tasks

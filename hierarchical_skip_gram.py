@@ -14,6 +14,7 @@ import truncated_krylov
 import loukas
 import utils
 
+
 def get_gnn(num_features, gnn_type):
     if gnn_type == 'gcn':
         return gcn.GraphConvolution(num_features, activation='tanh', auto_normalize=True)
@@ -237,8 +238,8 @@ if __name__ == '__main__':
     if args.task in dataset.available_tasks():
         with tf.device('/gpu:'+args.device):
             all_graphs = dataset.read_dortmund(args.task,
-                                           with_edge_features=False,
-                                           standardize=True)
+                                               with_edge_features=False,
+                                               standardize=True)
             accs = []
             num_tests = args.num_tests
             for test in range(num_tests):
