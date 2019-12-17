@@ -1,7 +1,11 @@
+import itertools
+from itertools import chain
+from itertools import product
 import os
 from collections import defaultdict
 import numpy as np
 import tensorflow as tf
+import tensorflow_datasets.public_api as tfds
 
 
 def standardize_features(features):
@@ -117,7 +121,7 @@ def get_edge_features(prefix, _, graph_nodes, graph_ids, new_node_ids, adj_lst):
     graph_edge_labels = [tf.keras.backend.one_hot(graph, len(label_set)) for graph in graph_edge_labels]
     return graph_edge_labels
 
-def print_statistics(graph_adj, node_features, edge_features):
+def print_statistics(graph_adj, node_features, edge_features=None):
     num_nodes = [int(graph.shape[0]) for graph in graph_adj]
     num_edges = [int(tf.reduce_sum(graph)/2.) for graph in graph_adj]
     print('num_graphs: %d'%len(graph_adj))
@@ -132,18 +136,22 @@ def print_statistics(graph_adj, node_features, edge_features):
         print('no edge features')
 
 def read_dortmund(prefix, with_edge_features, standardize):
-    print('opening %s...'%prefix, flush=True)
     graph_ids, graph_nodes, new_node_ids = get_graph_node_ids(prefix)
     graph_adj, adj_lst = get_graph_adj(prefix, graph_nodes, graph_ids, new_node_ids)
     node_features = get_node_features(prefix, standardize, graph_ids, new_node_ids, graph_adj)
     edge_features = None
     if with_edge_features:
         edge_features = get_edge_features(prefix, standardize, graph_nodes, graph_ids, new_node_ids, adj_lst)
-    print('%s opened with success !'%prefix, flush=True)
-    print_statistics(graph_adj, node_features, edge_features)
     if edge_features is None:
         return node_features, graph_adj
     return node_features, graph_adj, edge_features
+
+def read_dataset(name, with_edge_features, standardize):
+    print('opening %s...'%name, flush=True)
+    graph_inputs = read_dortmund(name, with_edge_features, standardize)
+    print('%s opened with success !'%name, flush=True)
+    print_statistics(*graph_inputs)
+    return graph_inputs
 
 def read_graph_labels(dataset_name):
     labels_filename = os.path.join(dataset_name, '%s_graph_labels.txt'%dataset_name)
@@ -152,10 +160,75 @@ def read_graph_labels(dataset_name):
     labels = [class_indexes_remapper[label] for label in labels]
     return labels, len(label_set)
 
+def read_mnist_image(image):
+    image = tf.squeeze(image)
+    mask = tf.not_equal(image, tf.zeros(shape=image.shape, dtype=image.dtype))
+    indices = tf.where(mask)
+    luminosity = tf.gather_nd(image, indices)
+    luminosity = tf.dtypes.cast(luminosity, dtype=tf.float32) / tf.constant(255., dtype=tf.float32)
+    luminosity = tf.expand_dims(luminosity, axis=-1)
+    indices_features = tf.dtypes.cast(indices, dtype=tf.float32)
+    features = tf.concat([indices_features, luminosity], axis=1)
+    features = features.numpy()
+    indices = indices.numpy()
+    indices_right = indices + np.array([0, 1], dtype=indices.dtype)
+    indices_down = indices + np.array([1, 0], dtype=indices.dtype)
+    iter_indices_right = product(enumerate(indices), enumerate(indices_right))
+    iter_indices_down = product(enumerate(indices), enumerate(indices_down))
+    adj_lst = []
+    for (i, idi), (j, idj) in chain(iter_indices_right, iter_indices_down):
+        if np.array_equal(idi, idj):
+            adj_lst.append([i, j])
+            adj_lst.append([j, i])
+    return adj_lst, features
+
+def produce_mnist(parts):
+    data = tfds.load('mnist', with_info=False)
+    if parts == 'all':
+        data = itertools.chain(data['train'], data['test'])
+        num_data = 70 * 1000
+    elif part in ['train', 'test']:
+        data = data[part]
+        num_data = 10 * 1000 if part == 'test' else 60 * 1000
+    else:
+        raise ValueError
+    progbar = tf.keras.utils.Progbar(num_data,
+                                     stateful_metrics=['num_nodes', 'num_edges'])
+    prefix = 'MNIST_' + part
+    try:
+        os.mkdir(prefix)
+    except FileExistsError:
+        pass
+    mnist = lambda name: os.path.join(prefix, name)
+    with open(mnist(prefix+'_graph_indicator.txt'), 'w') as indicator_file, \
+         open(mnist(prefix+'_A.txt'), 'w')  as adj_file, \
+         open(mnist(prefix+'_node_attributes.txt'), 'w') as features_file:
+        num_nodes, num_edges = 1, 0
+        for step, image_label in enumerate(data):
+            adj, features = read_mnist_image(image_label['image'])
+            for a, b in adj:
+                adj_file.write(str(a+num_nodes)+', '+str(b+num_nodes)+'\n')
+            for feature in features:
+                indicator_file.write(str(step+1)+'\n')
+                features_file.write(', '.join(map(str, feature.tolist()))+'\n')
+            num_nodes += int(features.shape[0])
+            num_edges += len(adj)
+            progbar.update(step+1, [('num_nodes', num_nodes+1), ('num_edges', num_edges)])
+
 def available_tasks():
     tasks = ['ENZYMES', 'PROTEINS', 'PROTEINS_full', 'MUTAG',
              'PTC_FM', 'NCI1', 'PTC_FR', 'DD',
-             'Letter-high', 'Letter-med', 'Letter-low',
-             'REDDIT_BINARY', 'COLLAB', 'MCF-7', 'MCF-7H',
-             'DLA', 'IMDB-BINARY']
+             # 'Letter-high', 'Letter-med', 'Letter-low',
+             # 'REDDIT_BINARY', 'COLLAB', 'MCF-7', 'MCF-7H',
+             'DLA', 'IMDB-BINARY', 'MNIST']
     return tasks
+
+
+if __name__ == '__main__':
+    with tf.device('/cpu'):
+        confirm = input('Are you sure to generate MNIST ? This is long. Tape "yes" or exit. ')
+        if confirm == 'yes':
+            part = input('Choose between: train, test, all. ')
+            produce_mnist(part)
+        else:
+            print('Exit procedure.')
