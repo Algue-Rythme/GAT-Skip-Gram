@@ -182,7 +182,7 @@ def read_mnist_image(image):
             adj_lst.append([j, i])
     return adj_lst, features
 
-def produce_mnist(parts):
+def init_mnist(parts):
     data = tfds.load('mnist', with_info=False)
     if parts == 'all':
         data = itertools.chain(data['train'], data['test'])
@@ -199,6 +199,10 @@ def produce_mnist(parts):
         os.mkdir(prefix)
     except FileExistsError:
         pass
+    return data, progbar, prefix
+
+def produce_mnist_images(parts):
+    data, progbar, prefix = init_mnist(parts)
     mnist = lambda name: os.path.join(prefix, name)
     with open(mnist(prefix+'_graph_indicator.txt'), 'w') as indicator_file, \
          open(mnist(prefix+'_A.txt'), 'w')  as adj_file, \
@@ -215,12 +219,20 @@ def produce_mnist(parts):
             num_edges += len(adj)
             progbar.update(step+1, [('num_nodes', num_nodes+1), ('num_edges', num_edges)])
 
+def produce_mnist_labels(parts):
+    data, progbar, prefix = init_mnist(parts)
+    with open(os.path.join(prefix, prefix+'_graph_labels.txt'), 'w') as labels_file:
+        for step, image_label in enumerate(data):
+            label = int(image_label['label'].numpy())
+            labels_file.write(str(label)+'\n')
+            progbar.update(step+1)
+
 def available_tasks():
     tasks = ['ENZYMES', 'PROTEINS', 'PROTEINS_full', 'MUTAG',
              'PTC_FM', 'NCI1', 'PTC_FR', 'DD',
              # 'Letter-high', 'Letter-med', 'Letter-low',
              # 'REDDIT_BINARY', 'COLLAB', 'MCF-7', 'MCF-7H',
-             'DLA', 'IMDB-BINARY', 'MNIST']
+             'DLA', 'IMDB-BINARY', 'MNIST_test']
     return tasks
 
 
@@ -229,6 +241,12 @@ if __name__ == '__main__':
         confirm = input('Are you sure to generate MNIST ? This is long. Tape "yes" or exit. ')
         if confirm == 'yes':
             part = input('Choose between: train, test, all. ')
-            produce_mnist(part)
+            category = input('What do you want to generate ? labels or graphs. ')
+            if category == 'graphs':
+                produce_mnist_images(part)
+            elif category == 'labels':
+                produce_mnist_labels(part)
+            else:
+                raise ValueError
         else:
             print('Exit procedure.')

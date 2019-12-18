@@ -114,9 +114,9 @@ if __name__ == '__main__':
     print(departure_time)
     if args.task in dataset.available_tasks():
         with tf.device('/gpu:'+args.device):
-            graphs = dataset.read_dortmund(args.task,
-                                           with_edge_features=False,
-                                           standardize=True)
+            graphs = dataset.read_dataset(args.task,
+                                          with_edge_features=False,
+                                          standardize=True)
             restart = True
             while restart:
                 try:

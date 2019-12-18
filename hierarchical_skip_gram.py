@@ -237,9 +237,9 @@ if __name__ == '__main__':
     print(departure_time)
     if args.task in dataset.available_tasks():
         with tf.device('/gpu:'+args.device):
-            all_graphs = dataset.read_dortmund(args.task,
-                                               with_edge_features=False,
-                                               standardize=True)
+            all_graphs = dataset.read_dataset(args.task,
+                                              with_edge_features=False,
+                                              standardize=True)
             accs = []
             num_tests = args.num_tests
             for test in range(num_tests):
