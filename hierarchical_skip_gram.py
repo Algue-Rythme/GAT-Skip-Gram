@@ -185,9 +185,9 @@ def train_epoch(model, graph_inputs,
         gradients = tape.gradient(total_loss, model.trainable_variables)
         optimizer.apply_gradients(zip(gradients, model.trainable_variables))
         progbar.update(step+1, [
-            ('loss_%d'%(i+1), float(loss.numpy().mean()))
+            ('l%d'%(i+1), float(loss.numpy().mean()))
             for i, loss in enumerate(losses)] + [
-                ('acc_%d'%(i+1), float(metric.result().numpy()))
+                ('a%d'%(i+1), float(metric.result().numpy()))
                 for i, metric in enumerate(metrics)])
 
 
