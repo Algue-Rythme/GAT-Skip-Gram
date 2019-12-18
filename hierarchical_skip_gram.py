@@ -226,7 +226,7 @@ if __name__ == '__main__':
     parser.add_argument('--max_depth', type=int, default=3, help='Depth of extractor.')
     parser.add_argument('--num_features', type=int, default=128, help='Size of feature space')
     parser.add_argument('--batch_size', type=int, default=32, help='Size of batchs')
-    parser.add_argument('--num_epochs', type=int, default=100, help='Number of epochs')
+    parser.add_argument('--num_epochs', type=int, default=30, help='Number of epochs')
     parser.add_argument('--lbda', type=float, default=1., help='Weight for positive samples')
     parser.add_argument('--gnn_type', default='krylov', help='Nature of vocabulary extractor')
     parser.add_argument('--num_tests', type=int, default=10, help='Number of repetitions')
