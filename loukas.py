@@ -25,9 +25,7 @@ def pooling(pooling_method, coarsening_matrix, X):
         return coarsening_matrix @ X
     elif pooling_method == 'sum':
         X = coarsening_matrix @ X
-        mask = tf.not_equal(coarsening_matrix, tf.constant(0., dtype=tf.float32))
-        indicator = tf.dtypes.cast(mask, tf.float32)
-        X = X * tf.reduce_sum(indicator, axis=-1, keepdims=True)
+        X = X * tf.math.count_nonzero(coarsening_matrix, axis=-1, keepdims=True)
         return X
     elif pooling_method == 'max':
         X = tf.einsum('nm,mf->nmf', coarsening_matrix, X)
