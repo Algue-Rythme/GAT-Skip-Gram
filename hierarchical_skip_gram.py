@@ -18,8 +18,9 @@ import utils
 def get_gnn(num_features, gnn_type):
     if gnn_type == 'gcn':
         return gcn.GraphConvolution(num_features, activation='tanh', auto_normalize=True)
-    elif gnn_type == 'krylov':
-        return truncated_krylov.KrylovBlock(num_features=num_features, num_hops=4)
+    elif gnn_type.startswith('krylov'):
+        num_hops = int(gnn_type.split('-')[1])
+        return truncated_krylov.KrylovBlock(num_features=num_features, num_hops=num_hops)
     elif gnn_type == 'gat':
         return gat.GraphAttention(num_features, attn_heads=2, attn_heads_reduction='average')
     else:
@@ -162,10 +163,12 @@ def process_batch(model, graph_inputs, batch_size, lbda, metrics):
     losses = [[] for _ in range(max_depth)]
     for depth in range(max_depth):
         cur_vocab = tf.concat(vocab[depth], axis=0)
+        vocab_size = int(cur_vocab.shape[0])
         for k in range(batch_size):
             labels = get_current_labels(graph_lengths[depth], depth, k, indicator)
             similarity = tf.einsum('if,jf->ij', context[depth][k], cur_vocab)
-            weights = lbda *  tf.size(labels, out_type=tf.float32) / tf.reduce_sum(labels)
+            similarity = similarity + tf.math.log(vocab_size / tf.constant(5., dtype=tf.float32))
+            weights = lbda * tf.size(labels, out_type=tf.float32) / tf.reduce_sum(labels)
             loss = tf.nn.weighted_cross_entropy_with_logits(labels, similarity, weights)
             losses[depth].append(tf.math.reduce_mean(loss))
             update_metric(metrics[depth], labels, similarity)
@@ -181,7 +184,7 @@ def train_epoch(model, graph_inputs,
     for step in range(num_batchs):
         with tf.GradientTape() as tape:
             losses = process_batch(model, graph_inputs, batch_size, lbda, metrics)
-            total_loss = tf.math.reduce_mean(losses)
+            total_loss = tf.math.reduce_sum(losses)
         gradients = tape.gradient(total_loss, model.trainable_variables)
         optimizer.apply_gradients(zip(gradients, model.trainable_variables))
         progbar.update(step+1, [
