@@ -35,7 +35,7 @@ class DifferentiablePooler(tf.keras.layers.Layer):
         self.pooling_method = pooling_method
         self.gnn_type = gnn_type
         self.gnn_in = get_gnn(self.num_features, self.gnn_type)
-        self.gnn_out = tf.keras.layers.Dense(self.num_features, activation='relu')
+        self.gnn_out = tf.keras.layers.Dense(self.num_features, activation='linear')
 
     def call(self, inputs):
         X, A, C = inputs[:3]
@@ -111,7 +111,7 @@ class HierarchicalLoukas(tf.keras.models.Model):
             vocab.append(wl_X)
             context.append(X)
             indicator.append(C.todense().astype(dtype=np.float32))
-            # X = tf.stop_gradient(X)
+            X = tf.stop_gradient(X)
         if self.collapse:
             vocab.append(X)
             indicator.append(np.zeros(shape=(1, int(X.shape[0])), dtype=np.float32))
@@ -157,33 +157,62 @@ def update_metric(metric, labels, similarity):
     metric.update_state(labels, similarity)
 
 
-def process_batch(model, graph_inputs, batch_size, lbda, metrics):
+def negative_sampling(labels, similarity):
+    weights = tf.size(labels, out_type=tf.float32) / tf.reduce_sum(labels)
+    loss = tf.nn.weighted_cross_entropy_with_logits(labels, similarity, weights)
+    return loss
+
+
+def infoNCE(labels, similarity):
+    """InfoNCE objective based on maximization of mutual information.
+    """
+    similarity = tf.clip_by_value(similarity, -5., 5.)
+    similarity = tf.exp(similarity)
+    pos_examples = labels * similarity
+    pos_examples = tf.math.reduce_sum(pos_examples, axis=-1)
+
+    neg_examples = (1 - labels) * similarity
+    neg_examples = tf.math.reduce_sum(neg_examples, axis=-1)
+
+    ratio = pos_examples / neg_examples
+    loss = tf.math.log(ratio)
+    loss = tf.math.reduce_mean(loss)
+
+    return loss
+
+
+def get_loss(loss_type):
+    if loss_type == 'negative_sampling':
+        return negative_sampling
+    elif loss_type == 'infoNCE':
+        return infoNCE
+    raise ValueError
+
+
+def process_batch(model, graph_inputs, loss_fn, batch_size, metrics):
     graph_lengths, vocab, context, indicator = forward_batch(model, graph_inputs, batch_size)
     max_depth = model.max_depth()
     losses = [[] for _ in range(max_depth)]
     for depth in range(max_depth):
         cur_vocab = tf.concat(vocab[depth], axis=0)
-        vocab_size = int(cur_vocab.shape[0])
         for k in range(batch_size):
             labels = get_current_labels(graph_lengths[depth], depth, k, indicator)
             similarity = tf.einsum('if,jf->ij', context[depth][k], cur_vocab)
-            similarity = similarity + tf.math.log(vocab_size / tf.constant(5., dtype=tf.float32))
-            weights = lbda * tf.size(labels, out_type=tf.float32) / tf.reduce_sum(labels)
-            loss = tf.nn.weighted_cross_entropy_with_logits(labels, similarity, weights)
+            loss = loss_fn(labels, similarity)
             losses[depth].append(tf.math.reduce_mean(loss))
             update_metric(metrics[depth], labels, similarity)
         losses[depth] = tf.math.reduce_mean(losses[depth])
     return losses
 
 
-def train_epoch(model, graph_inputs,
-                batch_size, num_batchs, lbda, lr):
+def train_epoch(model, graph_inputs, loss_fn,
+                batch_size, num_batchs, lr):
     optimizer = tf.keras.optimizers.Adam(lr)
     progbar = tf.keras.utils.Progbar(num_batchs)
     metrics = [tf.keras.metrics.BinaryAccuracy() for _ in range(model.max_depth())]
     for step in range(num_batchs):
         with tf.GradientTape() as tape:
-            losses = process_batch(model, graph_inputs, batch_size, lbda, metrics)
+            losses = process_batch(model, graph_inputs, loss_fn, batch_size, metrics)
             total_loss = tf.math.reduce_sum(losses)
         gradients = tape.gradient(total_loss, model.trainable_variables)
         optimizer.apply_gradients(zip(gradients, model.trainable_variables))
@@ -194,9 +223,9 @@ def train_epoch(model, graph_inputs,
                 for i, metric in enumerate(metrics)])
 
 
-def train_embeddings(dataset_name, graph_inputs,
+def train_embeddings(dataset_name, graph_inputs, loss_type,
                      max_depth, num_features, batch_size,
-                     num_epochs, lbda, gnn_type, verbose):
+                     num_epochs, gnn_type, verbose):
     num_graphs = len(graph_inputs[0])
     model = HierarchicalLoukas(num_features=num_features,
                                max_num_stages=max_depth,
@@ -204,13 +233,13 @@ def train_embeddings(dataset_name, graph_inputs,
                                pooling_method='sum',
                                gnn_type=gnn_type,
                                collapse=False)
+    loss_fn = get_loss(loss_type)
     _, graph_embedder_file, csv_file = utils.get_weight_filenames(dataset_name)
     num_batchs = math.ceil(num_graphs // (batch_size+1))
     for epoch in range(num_epochs):
         print('epoch %d/%d'%(epoch+1, num_epochs))
         lr = 1e-4 * np.math.pow(1.1, - 50.*(epoch / num_epochs))
-        train_epoch(model, graph_inputs,
-                    batch_size, num_batchs, lbda, lr)
+        train_epoch(model, graph_inputs, loss_fn, batch_size, num_batchs, lr)
         if epoch+1 == num_epochs or (epoch+1)%5 == 0 or verbose == 1:
             model.save_weights(graph_embedder_file)
             model.dump_to_csv(csv_file, graph_inputs)
@@ -226,12 +255,12 @@ if __name__ == '__main__':
     tf.random.set_seed(seed + 146)
     parser = argparse.ArgumentParser()
     parser.add_argument('--task', help='Task to execute. Only %s are currently available.'%str(dataset.available_tasks()))
+    parser.add_argument('--loss_type', default='negative_sampling', help='Loss to minimize. \'negative_sampling\' or \'infoNCE\'')
     parser.add_argument('--max_depth', type=int, default=3, help='Depth of extractor.')
     parser.add_argument('--num_features', type=int, default=128, help='Size of feature space')
     parser.add_argument('--batch_size', type=int, default=32, help='Size of batchs')
     parser.add_argument('--num_epochs', type=int, default=30, help='Number of epochs')
-    parser.add_argument('--lbda', type=float, default=1., help='Weight for positive samples')
-    parser.add_argument('--gnn_type', default='krylov', help='Nature of vocabulary extractor')
+    parser.add_argument('--gnn_type', default='krylov-4', help='Nature of vocabulary extractor')
     parser.add_argument('--num_tests', type=int, default=10, help='Number of repetitions')
     parser.add_argument('--device', default='0', help='Index of the target GPU')
     parser.add_argument('--verbose', type=int, default=0, help='0 or 1.')
@@ -251,8 +280,10 @@ if __name__ == '__main__':
                 restart = True
                 while restart:
                     try:
-                        train_embeddings(args.task, all_graphs, args.max_depth, args.num_features,
-                                         args.batch_size, args.num_epochs, args.lbda, args.gnn_type, args.verbose)
+                        train_embeddings(args.task, all_graphs, args.loss_type,
+                                         args.max_depth, args.num_features,
+                                         args.batch_size, args.num_epochs,
+                                         args.gnn_type, args.verbose)
                         cur_acc, _ = baselines.evaluate_embeddings(args.task, num_tests=60, final=True, low_memory=True)
                         restart = False
                     except Exception as e:
