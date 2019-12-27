@@ -206,7 +206,7 @@ def process_batch(model, graph_inputs, loss_fn, batch_size, metrics):
 
 
 def train_epoch(model, graph_inputs, loss_fn,
-                batch_size, num_batchs, lr):
+                batch_size, num_batchs, lr, print_acc):
     optimizer = tf.keras.optimizers.Adam(lr)
     progbar = tf.keras.utils.Progbar(num_batchs)
     metrics = [tf.keras.metrics.BinaryAccuracy() for _ in range(model.max_depth())]
@@ -216,11 +216,11 @@ def train_epoch(model, graph_inputs, loss_fn,
             total_loss = tf.math.reduce_sum(losses)
         gradients = tape.gradient(total_loss, model.trainable_variables)
         optimizer.apply_gradients(zip(gradients, model.trainable_variables))
-        progbar.update(step+1, [
-            ('l%d'%(i+1), float(loss.numpy().mean()))
-            for i, loss in enumerate(losses)] + [
-                ('a%d'%(i+1), float(metric.result().numpy()))
-                for i, metric in enumerate(metrics)])
+        loss_logs = [('l%d'%(i+1), float(loss.numpy().mean()))
+                     for i, loss in enumerate(losses)]
+        acc_logs = [('a%d'%(i+1), float(metric.result().numpy()))
+                   for i, metric in enumerate(metrics)]
+        progbar.update(step+1, loss_logs + (acc_logs if print_acc else []))
 
 
 def train_embeddings(dataset_name, graph_inputs, loss_type,
@@ -239,7 +239,8 @@ def train_embeddings(dataset_name, graph_inputs, loss_type,
     for epoch in range(num_epochs):
         print('epoch %d/%d'%(epoch+1, num_epochs))
         lr = 1e-4 * np.math.pow(1.1, - 50.*(epoch / num_epochs))
-        train_epoch(model, graph_inputs, loss_fn, batch_size, num_batchs, lr)
+        train_epoch(model, graph_inputs, loss_fn, batch_size, num_batchs, lr,
+                    print_acc=(loss_type == 'negative_sampling'))
         if epoch+1 == num_epochs or (epoch+1)%5 == 0 or verbose == 1:
             model.save_weights(graph_embedder_file)
             model.dump_to_csv(csv_file, graph_inputs)
