@@ -161,7 +161,7 @@ def read_graph_labels(dataset_name):
     return labels, len(label_set)
 
 def read_image(image):
-    image = tf.math.reduce_mean(image, axis=-1)
+    image = tf.squeeze(image)  #tf.math.reduce_mean(image, axis=-1)
     mask = tf.not_equal(image, tf.zeros(shape=image.shape, dtype=image.dtype))
     indices = tf.where(mask)
     luminosity = tf.gather_nd(image, indices)
