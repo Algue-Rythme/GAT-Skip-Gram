@@ -160,7 +160,7 @@ def read_graph_labels(dataset_name):
     labels = [class_indexes_remapper[label] for label in labels]
     return labels, len(label_set)
 
-def read_mnist_image(image):
+def read_image(image):
     image = tf.squeeze(image)
     mask = tf.not_equal(image, tf.zeros(shape=image.shape, dtype=image.dtype))
     indices = tf.where(mask)
@@ -182,8 +182,8 @@ def read_mnist_image(image):
             adj_lst.append([j, i])
     return adj_lst, features
 
-def init_mnist(mnist_type, parts):
-    data = tfds.load(mnist_type, with_info=False)
+def init_data(data_type, parts):
+    data = tfds.load(data_type, with_info=False)
     if parts == 'all':
         data = itertools.chain(data['train'], data['test'])
         num_data = 70 * 1000
@@ -194,22 +194,22 @@ def init_mnist(mnist_type, parts):
         raise ValueError
     progbar = tf.keras.utils.Progbar(num_data,
                                      stateful_metrics=['num_nodes', 'num_edges'])
-    prefix = ('MNIST_' if mnist_type == 'mnist' else 'FASHION_') + part
+    prefix = data_type.upper() + '_' + part
     try:
         os.mkdir(prefix)
     except FileExistsError:
         pass
     return data, progbar, prefix
 
-def produce_mnist_images(mnist_type, parts):
-    data, progbar, prefix = init_mnist(mnist_type, parts)
-    mnist = lambda name: os.path.join(prefix, name)
-    with open(mnist(prefix+'_graph_indicator.txt'), 'w') as indicator_file, \
-         open(mnist(prefix+'_A.txt'), 'w')  as adj_file, \
-         open(mnist(prefix+'_node_attributes.txt'), 'w') as features_file:
+def produce_data_images(data_type, parts):
+    data, progbar, prefix = init_data(data_type, parts)
+    map_name = lambda name: os.path.join(prefix, name)
+    with open(map_name(prefix+'_graph_indicator.txt'), 'w') as indicator_file, \
+         open(map_name(prefix+'_A.txt'), 'w')  as adj_file, \
+         open(map_name(prefix+'_node_attributes.txt'), 'w') as features_file:
         num_nodes, num_edges = 1, 0
         for step, image_label in enumerate(data):
-            adj, features = read_mnist_image(image_label['image'])
+            adj, features = read_image(image_label['image'])
             for a, b in adj:
                 adj_file.write(str(a+num_nodes)+', '+str(b+num_nodes)+'\n')
             for feature in features:
@@ -219,8 +219,8 @@ def produce_mnist_images(mnist_type, parts):
             num_edges += len(adj)
             progbar.update(step+1, [('num_nodes', num_nodes+1), ('num_edges', num_edges)])
 
-def produce_mnist_labels(mnist_type, parts):
-    data, progbar, prefix = init_mnist(parts)
+def produce_data_labels(data_type, parts):
+    data, progbar, prefix = init_data(data_type, parts)
     with open(os.path.join(prefix, prefix+'_graph_labels.txt'), 'w') as labels_file:
         for step, image_label in enumerate(data):
             label = int(image_label['label'].numpy())
@@ -240,13 +240,13 @@ if __name__ == '__main__':
     with tf.device('/cpu'):
         confirm = input('Are you sure to generate ? This is long. Tape "yes" or exit. ')
         if confirm == 'yes':
-            mnist_data = input('Name of the dataset: \'mnist\' or \'fashion_mnist\'. ')
+            data_name = input('Name of the dataset: \'mnist\', \'fashion_mnist\' or \'cifar10\'. ')
             part = input('Choose between: train, test, all. ')
             category = input('What do you want to generate ? labels or graphs. ')
             if category == 'graphs':
-                produce_mnist_images(mnist_data, part)
+                produce_data_images(data_name, part)
             elif category == 'labels':
-                produce_mnist_labels(mnist_data, part)
+                produce_data_labels(data_name, part)
             else:
                 raise ValueError
         else:
