@@ -182,8 +182,8 @@ def read_mnist_image(image):
             adj_lst.append([j, i])
     return adj_lst, features
 
-def init_mnist(parts):
-    data = tfds.load('mnist', with_info=False)
+def init_mnist(mnist_type, parts):
+    data = tfds.load(mnist_type, with_info=False)
     if parts == 'all':
         data = itertools.chain(data['train'], data['test'])
         num_data = 70 * 1000
@@ -194,15 +194,15 @@ def init_mnist(parts):
         raise ValueError
     progbar = tf.keras.utils.Progbar(num_data,
                                      stateful_metrics=['num_nodes', 'num_edges'])
-    prefix = 'MNIST_' + part
+    prefix = ('MNIST_' if mnist_type == 'mnist' else 'FASHION_') + part
     try:
         os.mkdir(prefix)
     except FileExistsError:
         pass
     return data, progbar, prefix
 
-def produce_mnist_images(parts):
-    data, progbar, prefix = init_mnist(parts)
+def produce_mnist_images(mnist_type, parts):
+    data, progbar, prefix = init_mnist(mnist_type, parts)
     mnist = lambda name: os.path.join(prefix, name)
     with open(mnist(prefix+'_graph_indicator.txt'), 'w') as indicator_file, \
          open(mnist(prefix+'_A.txt'), 'w')  as adj_file, \
@@ -219,7 +219,7 @@ def produce_mnist_images(parts):
             num_edges += len(adj)
             progbar.update(step+1, [('num_nodes', num_nodes+1), ('num_edges', num_edges)])
 
-def produce_mnist_labels(parts):
+def produce_mnist_labels(mnist_type, parts):
     data, progbar, prefix = init_mnist(parts)
     with open(os.path.join(prefix, prefix+'_graph_labels.txt'), 'w') as labels_file:
         for step, image_label in enumerate(data):
@@ -238,14 +238,15 @@ def available_tasks():
 
 if __name__ == '__main__':
     with tf.device('/cpu'):
-        confirm = input('Are you sure to generate MNIST ? This is long. Tape "yes" or exit. ')
+        confirm = input('Are you sure to generate ? This is long. Tape "yes" or exit. ')
         if confirm == 'yes':
+            mnist_data = input('Name of the dataset: \'mnist\' or \'fashion_mnist\'. ')
             part = input('Choose between: train, test, all. ')
             category = input('What do you want to generate ? labels or graphs. ')
             if category == 'graphs':
-                produce_mnist_images(part)
+                produce_mnist_images(mnist_data, part)
             elif category == 'labels':
-                produce_mnist_labels(part)
+                produce_mnist_labels(mnist_data, part)
             else:
                 raise ValueError
         else:
