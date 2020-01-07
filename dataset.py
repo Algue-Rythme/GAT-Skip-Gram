@@ -104,7 +104,7 @@ def get_graph_adj(prefix, graph_nodes, graph_ids, new_node_ids):
             node_a, node_b = new_node_ids[node_a], new_node_ids[node_b]
             graph_adj[graph_a][node_a, node_b] = 1.
             tokens = f.readline()
-    graph_adj = [tf.constant(adj, dtype=tf.float32) for adj in graph_adj]
+    # graph_adj = [tf.constant(adj, dtype=tf.float32) for adj in graph_adj]
     return graph_adj, adj_lst
 
 def get_edge_features(prefix, _, graph_nodes, graph_ids, new_node_ids, adj_lst):
