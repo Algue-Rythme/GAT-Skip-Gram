@@ -121,7 +121,7 @@ def get_edge_features(prefix, _, graph_nodes, graph_ids, new_node_ids, adj_lst):
     graph_edge_labels = [tf.keras.backend.one_hot(graph, len(label_set)) for graph in graph_edge_labels]
     return graph_edge_labels
 
-def print_statistics(graph_adj, node_features, edge_features=None):
+def print_statistics(node_features, graph_adj, edge_features=None):
     num_nodes = [int(graph.shape[0]) for graph in graph_adj]
     num_edges = [int(tf.reduce_sum(graph)/2.) for graph in graph_adj]
     print('num_graphs: %d'%len(graph_adj))

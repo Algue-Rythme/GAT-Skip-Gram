@@ -258,7 +258,7 @@ if __name__ == '__main__':
     parser.add_argument('--task', help='Task to execute. Only %s are currently available.'%str(dataset.available_tasks()))
     parser.add_argument('--loss_type', default='negative_sampling', help='Loss to minimize. \'negative_sampling\' or \'infoNCE\'')
     parser.add_argument('--max_depth', type=int, default=3, help='Depth of extractor.')
-    parser.add_argument('--num_features', type=int, default=256, help='Size of feature space')
+    parser.add_argument('--num_features', type=int, default=128, help='Size of feature space')
     parser.add_argument('--batch_size', type=int, default=32, help='Size of batchs')
     parser.add_argument('--num_epochs', type=int, default=5, help='Number of epochs')
     parser.add_argument('--gnn_type', default='krylov-4', help='Nature of vocabulary extractor')
