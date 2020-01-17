@@ -55,9 +55,12 @@ def evaluate_embeddings(dataset_name, num_tests, final=False, low_memory=False):
         algos = ['svm-sigmoid', 'svm-poly', 'svm-rbf', 'knn3', 'knn7', 'adaboost']
         if not low_memory:
             algos.append('perceptron')
+    num_data = int(labels_data.shape[0])
     for algo in algos:
         print('Algo %s'%algo)
         cur_num_tests = num_tests
+        if algo.startswith('svm-') or algo.startswith('knn'):
+            num_tests = min(10, num_tests / max(1, num_data // 1000))
         if algo == 'adaboost':
             cur_num_tests = max(2, (num_tests // 20))
         if algo == 'perceptron':

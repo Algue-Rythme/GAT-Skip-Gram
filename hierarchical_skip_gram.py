@@ -76,8 +76,10 @@ class HierarchicalLoukas(tf.keras.models.Model):
         return self.num_features
 
     def dump_to_csv(self, csv_file, graph_inputs):
+        print('Dumping to CSV...')
+        progbar = tf.keras.utils.Progbar(len(graph_inputs[0]))
         with open(csv_file, 'w') as f:
-            for graph_input in zip(*graph_inputs):
+            for step, graph_input in enumerate(zip(*graph_inputs)):
                 _, context, _ = self(graph_input)
                 if self.collapse:
                     embed = tf.squeeze(context[-1])
@@ -86,6 +88,7 @@ class HierarchicalLoukas(tf.keras.models.Model):
                     mean_features = [tf.math.reduce_mean(t, axis=0) for t in context]
                     embed = tf.concat(max_features + mean_features, axis=0)
                 f.write('\t'.join(map(str, embed.numpy().tolist()))+'\n')
+                progbar.update(step+1)
 
     @utils.memoize
     def coarsen(self, A):
@@ -223,8 +226,8 @@ def train_epoch(model, graph_inputs, loss_fn,
         progbar.update(step+1, loss_logs + (acc_logs if print_acc else []))
 
 
-def train_embeddings(dataset_name, graph_inputs, loss_type,
-                     max_depth, num_features, batch_size,
+def train_embeddings(dataset_name, load_weights_path, graph_inputs,
+                     loss_type, max_depth, num_features, batch_size,
                      num_epochs, gnn_type, verbose):
     num_graphs = len(graph_inputs[0])
     model = HierarchicalLoukas(num_features=num_features,
@@ -233,14 +236,18 @@ def train_embeddings(dataset_name, graph_inputs, loss_type,
                                pooling_method='sum',
                                gnn_type=gnn_type,
                                collapse=False)
+    if load_weights_path is not None:
+        _ = model([graph_input[0] for graph_input in graph_inputs])
+        model.load_weights(load_weights_path)
     loss_fn = get_loss(loss_type)
     _, graph_embedder_file, csv_file = utils.get_weight_filenames(dataset_name)
     num_batchs = math.ceil(num_graphs // (batch_size+1))
     for epoch in range(num_epochs):
         print('epoch %d/%d'%(epoch+1, num_epochs))
         lr = 1e-4 * np.math.pow(1.1, - 50.*(epoch / num_epochs))
-        train_epoch(model, graph_inputs, loss_fn, batch_size, num_batchs, lr,
-                    print_acc=(loss_type == 'negative_sampling'))
+        if load_weights_path is None:
+            train_epoch(model, graph_inputs, loss_fn, batch_size, num_batchs, lr,
+                        print_acc=(loss_type == 'negative_sampling'))
         if epoch+1 == num_epochs or (epoch+1)%5 == 0 or verbose == 1:
             model.save_weights(graph_embedder_file)
             model.dump_to_csv(csv_file, graph_inputs)
@@ -265,6 +272,7 @@ if __name__ == '__main__':
     parser.add_argument('--num_tests', type=int, default=25, help='Number of repetitions')
     parser.add_argument('--device', default='0', help='Index of the target GPU')
     parser.add_argument('--verbose', type=int, default=0, help='0 or 1.')
+    parser.add_argument('--load_weights_path', default=None, help='File from which to retrieve weights of the model.')
     args = parser.parse_args()
     departure_time = utils.get_now()
     print(departure_time)
@@ -281,10 +289,10 @@ if __name__ == '__main__':
                 restart = True
                 while restart:
                     try:
-                        train_embeddings(args.task, all_graphs, args.loss_type,
-                                         args.max_depth, args.num_features,
-                                         args.batch_size, args.num_epochs,
-                                         args.gnn_type, args.verbose)
+                        train_embeddings(args.task, args.load_weights_path, all_graphs,
+                                         args.loss_type, args.max_depth, args.num_features,
+                                         args.batch_size, args.num_epochs, args.gnn_type,
+                                         args.verbose)
                         cur_acc, _ = baselines.evaluate_embeddings(args.task, num_tests=60, final=True, low_memory=True)
                         restart = False
                     except Exception as e:
