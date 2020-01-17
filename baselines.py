@@ -42,6 +42,15 @@ def learn_embeddings(embeddings, labels, ratio, algo):
     cur_acc = accuracy_score(y_test, y_pred)
     return cur_acc
 
+def reduce_num_tests(algo, num_tests, num_data):
+    if algo.startswith('svm-') or algo.startswith('knn'):
+        cur_num_tests = min(10, num_tests / max(1, num_data // 1000))
+    if algo == 'adaboost':
+        cur_num_tests = max(2, (num_tests // 20))
+    if algo == 'perceptron':
+        cur_num_tests = max(3, (num_tests // 5))
+    return cur_num_tests
+
 def evaluate_embeddings(dataset_name, num_tests, final=False, low_memory=False):
     graph_embedder_filename = os.path.join(dataset_name+'_weights', 'graph_embeddings.csv')
     labels_filename = os.path.join(dataset_name, '%s_graph_labels.txt'%dataset_name)
@@ -55,16 +64,11 @@ def evaluate_embeddings(dataset_name, num_tests, final=False, low_memory=False):
         algos = ['svm-sigmoid', 'svm-poly', 'svm-rbf', 'knn3', 'knn7', 'adaboost']
         if not low_memory:
             algos.append('perceptron')
-    num_data = int(labels_data.shape[0])
+    # num_data = int(labels_data.shape[0])
     for algo in algos:
         print('Algo %s'%algo)
-        cur_num_tests = num_tests
-        if algo.startswith('svm-') or algo.startswith('knn'):
-            num_tests = min(10, num_tests / max(1, num_data // 1000))
-        if algo == 'adaboost':
-            cur_num_tests = max(2, (num_tests // 20))
-        if algo == 'perceptron':
-            cur_num_tests = max(3, (num_tests // 5))
+        # cur_num_tests = reduce_num_tests(algo, num_tests, num_data)
+        cur_num_tests = 10
         progbar = tf.keras.utils.Progbar(cur_num_tests)
         for test in range(cur_num_tests):
             acc = learn_embeddings(embeddings_data, labels_data, ratio=0.2, algo=algo)

@@ -136,7 +136,7 @@ def get_current_labels(graph_lengths, depth, k, indicator):
 
 
 def forward_batch(model, graph_inputs, batch_size):
-    graph_indexes = random.sample(list(range(len(graph_inputs[0]))), batch_size+1)
+    graph_indexes = [11]*(batch_size+1) # random.sample(list(range(len(graph_inputs[0]))), batch_size+1)
     max_depth = model.max_depth()
     vocab = [[] for _ in range(max_depth)]
     context = [[] for _ in range(max_depth)]
