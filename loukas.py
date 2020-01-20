@@ -11,11 +11,24 @@ import truncated_krylov
 import utils
 
 
-def print_pyramid(Call, Gall):
-    for G in Gall:
-        G.set_coordinates(kind='spring')
-    loukas.plot_coarsening(Gall, Call[:-1])
-    plt.show()
+def print_pyramid(Call, Gall, depth=None, smart_coordinates=True):
+    if smart_coordinates:
+        Gall[0].set_coordinates(kind='spring')
+        coordinates = Gall[0].coords
+        for G, C in zip(Gall[1:], Call):
+            C = C.power(2)
+            C = tf.constant(C.todense(), dtype=tf.float32)
+            coordinates = C @ coordinates
+            G.set_coordinates(coordinates)
+    else:
+        for G in Gall:
+            G.set_coordinates(kind='spring')
+    Call = Call[:-1]
+    if depth is not None:
+        Gall = Gall[:depth]
+        Call = Call[:depth]
+    loukas.plot_coarsening(Gall, Call)
+    # plt.show()
 
 
 def pooling(pooling_method, coarsening_matrix, X):

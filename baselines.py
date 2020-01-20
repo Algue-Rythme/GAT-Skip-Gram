@@ -9,6 +9,7 @@ from sklearn.metrics import accuracy_score
 from sklearn.model_selection import train_test_split
 import tensorflow as tf
 import dataset
+import utils
 
 
 def learn_embeddings(embeddings, labels, ratio, algo):
@@ -52,12 +53,7 @@ def reduce_num_tests(algo, num_tests, num_data):
     return cur_num_tests
 
 def evaluate_embeddings(dataset_name, num_tests, final=False, low_memory=False):
-    graph_embedder_filename = os.path.join(dataset_name+'_weights', 'graph_embeddings.csv')
-    labels_filename = os.path.join(dataset_name, '%s_graph_labels.txt'%dataset_name)
-    with open(graph_embedder_filename, 'r') as f:
-        embeddings_data = np.loadtxt(f, delimiter='\t').astype(np.float32)
-    with open(labels_filename, 'r') as f:
-        labels_data = np.loadtxt(f, ndmin=1)
+    embeddings_data, labels_data = utils.get_data(dataset_name)
     accs = []
     algos = ['svm-rbf']
     if final:
@@ -84,7 +80,7 @@ if __name__ == '__main__':
     print('Use seed %d'%seed)
     np.random.seed(seed + 3165)
     parser = argparse.ArgumentParser()
-    parser.add_argument('task', help='Task to execute. Only %s are currently available.'%str(dataset.available_tasks()))
+    parser.add_argument('--task', help='Task to execute. Only %s are currently available.'%str(dataset.available_tasks()))
     args = parser.parse_args()
     if args.task in dataset.available_tasks():
         acc_avg_g, acc_std_g = evaluate_embeddings(args.task, num_tests=100)

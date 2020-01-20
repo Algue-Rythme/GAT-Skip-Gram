@@ -46,7 +46,7 @@ def coarsen(G, K=10, r=0.5, max_levels=20, method='variation_edges', algorithm='
     N = G.N
 
     #TODO(lbethune): fix this heuristic
-    K = max(1, min(K, N // 2))
+    K = max(1, min(K, N - 2))
     n, n_target = N, max(2, np.ceil((1-r)*N))
 
     C = sp.sparse.eye(N, format='csc')

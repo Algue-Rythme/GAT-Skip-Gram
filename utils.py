@@ -110,3 +110,12 @@ def memoize(func):
             cache[key] = func(*l_args)
         return cache[key]
     return memoized_func
+
+def get_data(dataset_name):
+    graph_embedder_filename = os.path.join(dataset_name+'_weights', 'graph_embeddings.csv')
+    labels_filename = os.path.join(dataset_name, '%s_graph_labels.txt'%dataset_name)
+    with open(graph_embedder_filename, 'r') as f:
+        embeddings_data = np.loadtxt(f, delimiter='\t').astype(np.float32)
+    with open(labels_filename, 'r') as f:
+        labels_data = np.loadtxt(f, ndmin=1)
+    return embeddings_data, labels_data
