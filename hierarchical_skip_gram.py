@@ -45,9 +45,30 @@ class DifferentiablePooler(tf.keras.layers.Layer):
         return X
 
 
+class MnistConv(tf.keras.layers.Layer):
+
+    def __init__(self, num_features):
+        self.conv2d_1 = tf.keras.layers.Conv2D(filters=32, kernel_size=(3,3), activation='relu')
+        self.conv2d_2 = tf.keras.layers.Conv2D(filters=64, kernel_size=(3, 3), activation='relu')
+        self.pool_1 = tf.keras.layers.MaxPool2D(pool_size=(2,2))
+        self.dropouter = tf.keras.layers.Dropout(0.25)
+        self.flattener = tf.keras.layers.Flatten()
+        self.dense_1 = tf.keras.layers.Dense(num_features, activation='relu')
+
+    def call(self, inputs):
+        x = inputs[0]
+        x = tf.reshape(x, shape=(-1, 28, 28, 1))
+        x = self.conv2d_1(x)
+        x = self.conv2d_2(x)
+        x = self.dropouter(x)
+        x = self.flattener(x)
+        x = self.dense_1(x)
+        return x
+
+
 class HierarchicalLoukas(tf.keras.models.Model):
 
-    def __init__(self, num_features, max_num_stages, coarsening_method, pooling_method, gnn_type, collapse):
+    def __init__(self, num_features, max_num_stages, coarsening_method, pooling_method, gnn_type, collapse, mnist_conv):
         super(HierarchicalLoukas, self).__init__()
         self.k = 6
         self.r = 0.99
@@ -57,7 +78,10 @@ class HierarchicalLoukas(tf.keras.models.Model):
         self.pooling_method = pooling_method
         self.gnn_type = gnn_type
         self.collapse = collapse
-        self.fc_in = tf.keras.layers.Dense(self.num_features, activation='relu')
+        if mnist_conv:
+            self.fc_in = tf.keras.layers.Dense(self.num_features, activation='relu')
+        else:
+            self.fc_in = MnistConv(self.num_features)
         self.pooling_layers = []
         self.wl_layers = []
         for _ in range(self.max_num_stages):
@@ -230,12 +254,16 @@ def train_embeddings(dataset_name, load_weights_path, graph_inputs,
                      loss_type, max_depth, num_features, batch_size,
                      num_epochs, gnn_type, verbose):
     num_graphs = len(graph_inputs[0])
+    mnist_conv = dataset_name == 'FRANKENSTEIN'
+    if mnist_conv:
+        print('Use: MnistConv')
     model = HierarchicalLoukas(num_features=num_features,
                                max_num_stages=max_depth,
                                coarsening_method='variation_neighborhood',
                                pooling_method='sum',
                                gnn_type=gnn_type,
-                               collapse=False)
+                               collapse=False,
+                               mnist_conv=mnist_conv)
     if load_weights_path is not None:
         _ = model([graph_input[0] for graph_input in graph_inputs])
         model.load_weights(load_weights_path)
