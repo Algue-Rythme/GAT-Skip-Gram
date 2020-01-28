@@ -25,7 +25,7 @@ Note: 'ENZYMES' contains 32 unconnected graphs.
 Usage:
 
 ```
-python3 hierarchical_skip_gam.py --task=PROTEINS --loss_type=negative_sampling --batch_size=32 --max_depth=3 --num_features=128 --num_epochs=30 --gnn_type=krylov-4 --num_tests=10 --device=1
+python3 hierarchical_skip_gram.py --task=PROTEINS --loss_type=negative_sampling --batch_size=32 --max_depth=3 --num_features=128 --num_epochs=30 --gnn_type=krylov-4 --num_tests=10 --device=1
 ```
 
 It will:

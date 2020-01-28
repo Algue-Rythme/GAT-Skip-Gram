@@ -270,14 +270,15 @@ if __name__ == '__main__':
     parser.add_argument('--num_epochs', type=int, default=5, help='Number of epochs')
     parser.add_argument('--gnn_type', default='krylov-4', help='Nature of vocabulary extractor')
     parser.add_argument('--num_tests', type=int, default=25, help='Number of repetitions')
-    parser.add_argument('--device', default='0', help='Index of the target GPU')
+    parser.add_argument('--device', default='0', help='Index of the target GPU. Specify \'cpu\' to disable gpu support.')
     parser.add_argument('--verbose', type=int, default=0, help='0 or 1.')
     parser.add_argument('--load_weights_path', default=None, help='File from which to retrieve weights of the model.')
     args = parser.parse_args()
     departure_time = utils.get_now()
     print(departure_time)
     if args.task in dataset.available_tasks():
-        with tf.device('/gpu:'+args.device):
+        device = '/cpu:0' if args.device == 'cpu' else '/gpu:'+args.device
+        with tf.device(device):
             all_graphs = dataset.read_dataset(args.task,
                                               with_edge_features=False,
                                               standardize=True)
