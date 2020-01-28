@@ -45,7 +45,7 @@ class DifferentiablePooler(tf.keras.layers.Layer):
         return X
 
 
-class MnistConv(tf.keras.layers.Layer):
+class MnistConv(tf.keras.models.Model):
 
     def __init__(self, num_features):
         self.conv2d_1 = tf.keras.layers.Conv2D(filters=32, kernel_size=(3,3), activation='relu')
@@ -60,6 +60,7 @@ class MnistConv(tf.keras.layers.Layer):
         x = tf.reshape(x, shape=(int(x.shape[0]), 28, 28, 1))
         x = self.conv2d_1(x)
         x = self.conv2d_2(x)
+        x = self.pool_1(x)
         x = self.dropouter(x)
         x = self.flattener(x)
         x = self.dense_1(x)
