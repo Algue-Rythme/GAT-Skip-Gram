@@ -28,7 +28,7 @@ def node_features_from_attribute_file(prefix, standardize):
             attributes = tf.constant(attributes, dtype=tf.float32)
             attributes = standardize_features(attributes)
         else:
-            attributes = np.array(attributes, dtype=np.float32)
+            attributes = tf.constant(attributes, dtype=tf.float32)
         return attributes
     except IOError:
         return None
@@ -148,6 +148,8 @@ def read_dortmund(prefix, with_edge_features, standardize):
 
 def read_dataset(name, with_edge_features, standardize):
     print('opening %s...'%name, flush=True)
+    if name == 'FRANKENSTEIN':
+        standardize = False
     graph_inputs = read_dortmund(name, with_edge_features, standardize)
     print('%s opened with success !'%name, flush=True)
     print_statistics(*graph_inputs)
