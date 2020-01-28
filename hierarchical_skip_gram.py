@@ -62,7 +62,7 @@ class MnistConv(tf.keras.layers.Layer):
         x = tf.concat([x, tf.zeros(shape=(num_nodes, 4), dtype=tf.float32)], axis=1)
         x = tf.reshape(x, shape=(num_nodes, 28, 28, 1))
         for i in range(5):
-            img = x.numpy()[i,:,:,0]
+            img = x.numpy()[i+7,:,:,0]
             plt.imshow(img)
         plt.show()
         x = self.conv2d_1(x)
