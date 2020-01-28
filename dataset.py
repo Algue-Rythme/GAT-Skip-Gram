@@ -230,7 +230,7 @@ def produce_data_labels(data_type, parts):
 def available_tasks():
     tasks = ['ENZYMES', 'PROTEINS', 'PROTEINS_full', 'MUTAG',
              'PTC_MR', 'NCI1', 'NCI109', 'PTC_FR', 'DD',
-             'PTC_MR', 'PTC_FM',
+             'PTC_MR', 'PTC_FM', 'FRANKENSTEIN',
              # 'Letter-high', 'Letter-med', 'Letter-low',
              # 'REDDIT_BINARY', 'COLLAB', 'MCF-7', 'MCF-7H',
              'DLA', 'DLA2', 'IMDB-BINARY', 'MNIST_test',
