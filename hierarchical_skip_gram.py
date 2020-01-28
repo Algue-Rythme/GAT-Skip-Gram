@@ -57,7 +57,7 @@ class MnistConv(tf.keras.layers.Layer):
 
     def call(self, inputs):
         x = inputs[0]
-        x = tf.reshape(x, shape=(-1, 28, 28, 1))
+        x = tf.reshape(x, shape=(int(x.shape[0]), 28, 28, 1))
         x = self.conv2d_1(x)
         x = self.conv2d_2(x)
         x = self.dropouter(x)
@@ -79,9 +79,9 @@ class HierarchicalLoukas(tf.keras.models.Model):
         self.gnn_type = gnn_type
         self.collapse = collapse
         if mnist_conv:
-            self.fc_in = tf.keras.layers.Dense(self.num_features, activation='relu')
-        else:
             self.fc_in = MnistConv(self.num_features)
+        else:
+            self.fc_in = tf.keras.layers.Dense(self.num_features, activation='relu')
         self.pooling_layers = []
         self.wl_layers = []
         for _ in range(self.max_num_stages):
