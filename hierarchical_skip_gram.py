@@ -3,6 +3,7 @@ import logging
 import math
 import random
 import traceback
+import matplotlib.pyplot as plt
 import numpy as np
 import scipy
 import tensorflow as tf
@@ -57,7 +58,12 @@ class MnistConv(tf.keras.layers.Layer):
         self.dense_1 = tf.keras.layers.Dense(num_features, activation='relu')
 
     def call(self, x):
-        x = tf.reshape(x, shape=(int(x.shape[0]), 28, 28, 1))
+        num_nodes = int(x.shape[0])
+        x = tf.concat([x, tf.zeros(shape=(4), dtype=tf.float32)], axis=1)
+        x = tf.reshape(x, shape=(num_nodes, 28, 28, 1))
+        img = x.numpy()
+        plt.imshow(img)
+        plt.show()
         x = self.conv2d_1(x)
         x = self.conv2d_2(x)
         x = self.pool_1(x)
