@@ -56,8 +56,7 @@ class MnistConv(tf.keras.layers.Layer):
         self.flattener = tf.keras.layers.Flatten()
         self.dense_1 = tf.keras.layers.Dense(num_features, activation='relu')
 
-    def call(self, inputs):
-        x = inputs[0]
+    def call(self, x):
         x = tf.reshape(x, shape=(int(x.shape[0]), 28, 28, 1))
         x = self.conv2d_1(x)
         x = self.conv2d_2(x)
