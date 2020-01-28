@@ -45,7 +45,7 @@ class DifferentiablePooler(tf.keras.layers.Layer):
         return X
 
 
-class MnistConv(tf.keras.layers.Lyer):
+class MnistConv(tf.keras.layers.Layer):
 
     def __init__(self, num_features):
         super(MnistConv, self).__init__()
