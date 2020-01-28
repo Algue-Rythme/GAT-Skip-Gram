@@ -45,9 +45,10 @@ class DifferentiablePooler(tf.keras.layers.Layer):
         return X
 
 
-class MnistConv(tf.keras.models.Model):
+class MnistConv(tf.keras.layers.Lyer):
 
     def __init__(self, num_features):
+        super(MnistConv, self).__init__()
         self.conv2d_1 = tf.keras.layers.Conv2D(filters=32, kernel_size=(3,3), activation='relu')
         self.conv2d_2 = tf.keras.layers.Conv2D(filters=64, kernel_size=(3, 3), activation='relu')
         self.pool_1 = tf.keras.layers.MaxPool2D(pool_size=(2,2))
