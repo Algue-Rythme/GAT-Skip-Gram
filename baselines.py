@@ -12,6 +12,15 @@ import dataset
 import utils
 
 
+def cosine_similarity_histogram(embeddings):
+    epsilon = 1e-4
+    embeddings = embeddings / (np.linalg.norm(embeddings, axis=1, keepdims=True) + epsilon)
+    scores = embeddings @ np.transpose(embeddings)
+    assert -1 <= np.min(scores) <= np.max(scores) <= 1 # should be True
+    scores = scores[np.triu_indices(embeddings.shape[0])]
+    probs, buckets = np.histogram(scores, bins=20, range=(-1., 1.))
+    return probs / scores.shape[0], buckets
+
 def learn_embeddings(embeddings, labels, ratio, algo):
     test_size = int(labels.shape[0] * ratio)
     x_train, x_test, y_train, y_test = train_test_split(embeddings, labels, test_size=test_size, shuffle=True)
@@ -71,6 +80,10 @@ def evaluate_embeddings(dataset_name, num_tests, final=False, low_memory=False):
             if algo == 'svm-rbf':
                 accs.append(acc)
             progbar.update(test+1, [('acc', acc*100.)])
+    probs, bins = cosine_similarity_histogram(embeddings_data)
+    for prob, bucket_a, bucket_b in zip(probs.tolist(), bins.tolist(), bins.tolist()[1:]):
+        print('[%.2f,%.2f]=%.2f'%(bucket_a, bucket_b, prob), end=' ')
+    print('')
     acc_avg = tf.math.reduce_mean(accs)
     acc_std = tf.math.reduce_std(accs)
     return acc_avg, acc_std

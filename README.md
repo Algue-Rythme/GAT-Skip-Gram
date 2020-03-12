@@ -25,17 +25,17 @@ Note: 'ENZYMES' contains 32 unconnected graphs.
 Usage:
 
 ```
-python3 hierarchical_skip_gram.py --task=PROTEINS --loss_type=negative_sampling --batch_size=32 --max_depth=3 --num_features=128 --num_epochs=30 --gnn_type=krylov-4 --num_tests=10 --device=1
+python3 hierarchical_skip_gram.py --task=PROTEINS --loss_type=negative_sampling --batch_size=4 --max_depth=5 --num_features=512 --num_epochs=10 --gnn_type=krylov-5 --num_tests=10 --device=0
 ```
 
 It will:
 
 + train over PROTEINS dataset
-+ train the model over 30 epochs with batches of size 32
-+ the dimension of the embedding will be equal to 128
-+ it will use GPU 1
-+ the graph will be coarsened to maximum depth 3
-+ the vocabulary will be extracted with Truncated Krylov layer, of depth 4
++ train the model over 10 epochs with batches of size 4
++ the dimension of the embedding will be equal to 512
++ it will use GPU 0
++ the graph will be coarsened to maximum depth 5
++ the vocabulary will be extracted with Truncated Krylov layer, of depth 5
 + using negative sampling loss
 + repeat this procedure 10 times in order to generate statistics to assess the average performance
 
