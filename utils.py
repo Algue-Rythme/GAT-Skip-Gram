@@ -111,11 +111,18 @@ def memoize(func):
         return cache[key]
     return memoized_func
 
-def get_data(dataset_name):
-    graph_embedder_filename = os.path.join(dataset_name+'_weights', 'graph_embeddings.csv')
+def get_data(dataset_name, graph2vec):
+    if graph2vec:
+        graph_embedder_filename = os.path.join('../graph2vec/features/', dataset_name+'.csv')
+    else:
+        graph_embedder_filename = os.path.join(dataset_name+'_weights', 'graph_embeddings.csv')
     labels_filename = os.path.join(dataset_name, '%s_graph_labels.txt'%dataset_name)
     with open(graph_embedder_filename, 'r') as f:
-        embeddings_data = np.loadtxt(f, delimiter='\t').astype(np.float32)
+        if graph2vec:
+            embeddings_data = np.loadtxt(f, delimiter=',', skiprows=1).astype(np.float32)
+            embeddings_data = embeddings_data[:,1:]  # remove node index
+        else:
+            embeddings_data = np.loadtxt(f, delimiter='\t').astype(np.float32)
     with open(labels_filename, 'r') as f:
         labels_data = np.loadtxt(f, ndmin=1)
     return embeddings_data, labels_data

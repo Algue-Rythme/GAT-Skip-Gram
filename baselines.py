@@ -61,8 +61,8 @@ def reduce_num_tests(algo, num_tests, num_data):
         cur_num_tests = max(3, (num_tests // 5))
     return cur_num_tests
 
-def evaluate_embeddings(dataset_name, num_tests, final=False, low_memory=False):
-    embeddings_data, labels_data = utils.get_data(dataset_name)
+def evaluate_embeddings(dataset_name, num_tests, final=False, low_memory=False, graph2vec=False):
+    embeddings_data, labels_data = utils.get_data(dataset_name, graph2vec)
     accs = []
     algos = ['svm-rbf']
     if final:
@@ -94,9 +94,11 @@ if __name__ == '__main__':
     np.random.seed(seed + 3165)
     parser = argparse.ArgumentParser()
     parser.add_argument('--task', help='Task to execute. Only %s are currently available.'%str(dataset.available_tasks()))
+    parser.add_argument('--origin', help='Whether we should use the CSV of Graph2Vec or Vanilla', default='vanilla')
     args = parser.parse_args()
     if args.task in dataset.available_tasks():
-        acc_avg_g, acc_std_g = evaluate_embeddings(args.task, num_tests=100)
+        graph2vec_b = args.origin == 'graph2vec'
+        acc_avg_g, acc_std_g = evaluate_embeddings(args.task, num_tests=100, graph2vec=graph2vec_b)
         print('Accuracy: %.2f+-%.2f%%'%(acc_avg_g*100., acc_std_g*100.))
     else:
         print('Unknown task %s'%args.task)

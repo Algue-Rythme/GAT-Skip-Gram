@@ -155,6 +155,25 @@ def read_dataset(name, with_edge_features, standardize):
     print_statistics(*graph_inputs)
     return graph_inputs
 
+def generate_json(name):
+    _, adjs = read_dataset(name, with_edge_features=False, standardize=False)
+    output_dir = os.path.join('../graph2vec/', name)
+    try:
+        os.makedirs(output_dir)
+    except OSError as e:
+        pass
+    for num_graph, adj in enumerate(adjs):
+        file_name = os.path.join(output_dir, str(num_graph)+'.json')
+        adj = adj.numpy()
+        num_nodes = adj.shape[0]
+        edges = []
+        for i in range(num_nodes):
+            for j in range(i):
+                if adj[i,j] != 0:
+                    edges.append([i,j])
+        with open(file_name, 'w') as file:
+            file.write('{"edges": '+str(edges)+'}')
+
 def read_graph_labels(dataset_name):
     labels_filename = os.path.join(dataset_name, '%s_graph_labels.txt'%dataset_name)
     labels, label_set = read_label_file(labels_filename)
@@ -242,16 +261,21 @@ def available_tasks():
 
 if __name__ == '__main__':
     with tf.device('/cpu'):
-        confirm = input('Are you sure to generate ? This is long. Tape "yes" or exit. ')
-        if confirm == 'yes':
-            data_name = input('Name of the dataset: \'mnist\', \'fashion_mnist\' or \'cifar10\'. ')
-            part = input('Choose between: train, test, all. ')
-            category = input('What do you want to generate ? labels or graphs. ')
-            if category == 'graphs':
-                produce_data_images(data_name, part)
-            elif category == 'labels':
-                produce_data_labels(data_name, part)
+        what = input('What do you want to do ? Generate JSON (tape json) or images (tape images). ')
+        if what == 'images':
+            confirm = input('Are you sure to generate ? This is long. Tape "yes" or exit. ')
+            if confirm == 'yes':
+                data_name = input('Name of the dataset: \'mnist\', \'fashion_mnist\' or \'cifar10\'. ')
+                part = input('Choose between: train, test, all. ')
+                category = input('What do you want to generate ? labels or graphs. ')
+                if category == 'graphs':
+                    produce_data_images(data_name, part)
+                elif category == 'labels':
+                    produce_data_labels(data_name, part)
+                else:
+                    raise ValueError
             else:
-                raise ValueError
-        else:
-            print('Exit procedure.')
+                print('Exit procedure.')
+        elif what == 'json':
+            dataset_name = input('Dataset name ? ')
+            generate_json(dataset_name)
