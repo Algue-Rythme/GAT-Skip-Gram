@@ -253,8 +253,9 @@ def available_tasks():
              'PTC_MR', 'NCI1', 'NCI109', 'PTC_FR', 'DD',
              'PTC_MR', 'PTC_FM', 'FRANKENSTEIN',
              # 'Letter-high', 'Letter-med', 'Letter-low',
-             # 'REDDIT_BINARY', 'COLLAB', 'MCF-7', 'MCF-7H',
-             'DLA', 'DLA2', 'IMDB-BINARY', 'MNIST_test',
+             # 'COLLAB', 'MCF-7', 'MCF-7H',
+             'REDDIT-BINARY', 'DLA', 'DLA2',
+             'IMDB-BINARY', 'MNIST_test',
              'FASHION_MNIST_test', 'CIFAR10_test']
     return tasks
 
