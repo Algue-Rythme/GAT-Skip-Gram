@@ -255,7 +255,7 @@ def train_epoch(model, graph_inputs, loss_fn,
         loss_logs = [('l%d'%(i+1), float(loss.numpy().mean()))
                      for i, loss in enumerate(losses)]
         acc_logs = [('a%d'%(i+1), float(metric.result().numpy()))
-                   for i, metric in enumerate(metrics)]
+                    for i, metric in enumerate(metrics)]
         progbar.update(step+1, loss_logs + (acc_logs if print_acc else []))
 
 

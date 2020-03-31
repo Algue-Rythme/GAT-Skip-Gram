@@ -54,6 +54,13 @@ def node_features_from_label_file(prefix):
     labels = tf.keras.backend.one_hot(labels, len(label_set))
     return tf.constant(labels, dtype=tf.float32)
 
+def get_normalized_degree(adj, normalized=False):
+    degree = tf.math.reduce_sum(adj, axis=-1, keepdims=True)
+    if not normalized:
+        return degree
+    log_degree = tf.math.log(1 + degree)
+    return log_degree
+
 def get_node_features(prefix, standardize, graph_ids, new_node_ids, graph_adj):
     node_attributes = node_features_from_attribute_file(prefix, standardize)
     labels = node_features_from_label_file(prefix)
@@ -61,7 +68,7 @@ def get_node_features(prefix, standardize, graph_ids, new_node_ids, graph_adj):
     if node_attributes is not None and labels is not None:
         node_features = tf.concat([node_features, labels], axis=1)
     if node_attributes is None and labels is None:
-        node_features = [tf.math.reduce_sum(adj, axis=-1, keepdims=True) for adj in graph_adj]
+        node_features = [get_normalized_degree(adj, normalized=True) for adj in graph_adj]
         return node_features
     del node_attributes, labels
     num_node_features = int(node_features.shape[1])
