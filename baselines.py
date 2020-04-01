@@ -1,4 +1,5 @@
 import argparse
+import collections
 import os
 import random
 import numpy as np
@@ -16,7 +17,8 @@ def cosine_similarity_histogram(embeddings):
     epsilon = 1e-4
     embeddings = embeddings / (np.linalg.norm(embeddings, axis=1, keepdims=True) + epsilon)
     scores = embeddings @ np.transpose(embeddings)
-    assert -1 <= np.min(scores) <= np.max(scores) <= 1 # should be True
+    if not (-1.1 <= np.min(scores) <= np.max(scores) <= 1.1):
+        print(np.min(scores), np.max(scores))
     scores = scores[np.triu_indices(embeddings.shape[0])]
     probs, buckets = np.histogram(scores, bins=20, range=(-1., 1.))
     return probs / scores.shape[0], buckets
@@ -63,7 +65,7 @@ def reduce_num_tests(algo, num_tests, num_data):
 
 def evaluate_embeddings(dataset_name, num_tests, final=False, low_memory=False, graph2vec=False):
     embeddings_data, labels_data = utils.get_data(dataset_name, graph2vec)
-    accs = []
+    accs = collections.defaultdict(list)
     algos = ['svm-rbf']
     if final:
         algos = ['svm-sigmoid', 'svm-poly', 'svm-rbf', 'knn3', 'knn7', 'adaboost']
@@ -77,15 +79,16 @@ def evaluate_embeddings(dataset_name, num_tests, final=False, low_memory=False, 
         progbar = tf.keras.utils.Progbar(cur_num_tests)
         for test in range(cur_num_tests):
             acc = learn_embeddings(embeddings_data, labels_data, ratio=0.2, algo=algo)
-            if algo == 'svm-rbf':
-                accs.append(acc)
+            accs[algo].append(acc)
             progbar.update(test+1, [('acc', acc*100.)])
     probs, bins = cosine_similarity_histogram(embeddings_data)
     for prob, bucket_a, bucket_b in zip(probs.tolist(), bins.tolist(), bins.tolist()[1:]):
         print('[%.2f,%.2f]=%.2f'%(bucket_a, bucket_b, prob), end=' ')
     print('')
-    acc_avg = tf.math.reduce_mean(accs)
-    acc_std = tf.math.reduce_std(accs)
+    acc_avg, acc_std = dict(), dict()
+    for key in accs:
+        acc_avg[key] = tf.math.reduce_mean(accs[key])
+        acc_std[key] = tf.math.reduce_std(accs[key])
     return acc_avg, acc_std
 
 if __name__ == '__main__':

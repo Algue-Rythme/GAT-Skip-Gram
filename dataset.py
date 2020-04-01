@@ -68,7 +68,7 @@ def get_node_features(prefix, standardize, graph_ids, new_node_ids, graph_adj):
     if node_attributes is not None and labels is not None:
         node_features = tf.concat([node_features, labels], axis=1)
     if node_attributes is None and labels is None:
-        node_features = [get_normalized_degree(adj, normalized=True) for adj in graph_adj]
+        node_features = [get_normalized_degree(adj, normalized=False) for adj in graph_adj]
         return node_features
     del node_attributes, labels
     num_node_features = int(node_features.shape[1])

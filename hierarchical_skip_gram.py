@@ -1,4 +1,5 @@
 import argparse
+import collections
 import logging
 import math
 import random
@@ -169,7 +170,7 @@ def get_current_labels(graph_lengths, depth, k, indicator):
 
 
 def forward_batch(model, graph_inputs, batch_size):
-    graph_indexes = [11]*(batch_size+1) # random.sample(list(range(len(graph_inputs[0]))), batch_size+1)
+    graph_indexes = random.sample(list(range(len(graph_inputs[0]))), batch_size+1)
     max_depth = model.max_depth()
     vocab = [[] for _ in range(max_depth)]
     context = [[] for _ in range(max_depth)]
@@ -289,7 +290,8 @@ def train_embeddings(dataset_name, load_weights_path, graph_inputs,
             model.save_weights(graph_embedder_file)
             model.dump_to_csv(csv_file, graph_inputs)
             acc, std = baselines.evaluate_embeddings(dataset_name, num_tests=10)
-            print('Accuracy: %.2f+-%.2f%%'%(acc*100., std*100.))
+            print('Accuracy SVM: %.2f+-%.2f%%'%(acc['svm-rbf']*100., std['svm-rbf']*100.))
+            # print('Accuracy Adaboost: %.2f+-%.2f%%'%(acc['adaboost']*100., std['adaboost']*100.))
             print('')
 
 
@@ -319,7 +321,7 @@ if __name__ == '__main__':
             all_graphs = dataset.read_dataset(args.task,
                                               with_edge_features=False,
                                               standardize=True)
-            accs = []
+            accs = collections.defaultdict(list)
             num_tests = args.num_tests
             for test in range(num_tests):
                 print('Test %d'%(test+1))
@@ -341,13 +343,15 @@ if __name__ == '__main__':
                             pass
                         logging.error(traceback.format_exc())
                         restart = True
-                accs.append(cur_acc)
+                for key in cur_acc:
+                    accs[key].append(cur_acc[key])
                 print('')
-            acc_avg = tf.math.reduce_mean(accs)
-            acc_std = tf.math.reduce_std(accs)
-            print(utils.str_from_args(args))
-            print('Final accuracy: %.2f+-%.2f%%'%(acc_avg*100., acc_std*100.))
-            utils.record_args('embeddings', departure_time, args.task, args, acc_avg, acc_std)
+            for key in accs:
+                acc_avg = tf.math.reduce_mean(accs[key])
+                acc_std = tf.math.reduce_std(accs[key])
+                print(utils.str_from_args(args))
+                print('Final accuracy %s: %.2f+-%.2f%%'%(key, acc_avg*100., acc_std*100.))
+                utils.record_args('embeddings-'+key, departure_time, args.task, args, acc_avg, acc_std)
     else:
         print('Unknown task %s'%args.task)
         parser.print_help()
