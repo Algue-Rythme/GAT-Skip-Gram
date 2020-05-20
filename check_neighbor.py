@@ -10,14 +10,14 @@ import dataset
 import loukas
 import utils
 
-def retrieve_coordinates(G, features):
+def retrieve_coordinates(features):
     assert int(features.shape[1]) == 3
     coords = np.array(features[:,0:2])  # first two are coordinates
     x = coords[:,1]
     y = -coords[:,0]  # other direction
     coords = np.stack([x, y], axis=-1)
     coords = coords * 28
-    G.set_coordinates(coords)
+    return coords
 
 def print_graphs(Calls, Galls, attributes=None):
     size = 3
@@ -34,7 +34,8 @@ def print_graphs(Calls, Galls, attributes=None):
         if features is None:
             G.set_coordinates(kind='spring')
         else:
-            retrieve_coordinates(G, features)
+            coords = retrieve_coordinates(features)
+            G.set_coordinates(coords)
         # pygsp.plotting.plot_graph(G)
         ax = fig.add_subplot(1, len(Galls), i+1)
         ax.axis('off')
@@ -98,8 +99,13 @@ def find_nearest_neighbor(dataset_name, n_neighbors, load_neighbors, reverse, pr
         if len(Galls) < n_neighbors:
             continue
         if print_pyramid:
-            for Call, Gall in zip(Calls, Galls):
-                loukas.print_pyramid(Call, Gall, depth=None)
+            keep = 2
+            for idx, (Call, Gall) in enumerate(list(zip(Calls, Galls))[:keep]):
+                coords = None
+                if 'MNIST' in dataset_name or 'DLA' in dataset_name:
+                    features = graphs_features[indexes[idx]]
+                    coords = retrieve_coordinates(features)
+                loukas.print_pyramid(Call, Gall, depth=None, init_coordinates=coords)
         else:
             if 'MNIST' in dataset_name or 'DLA' in dataset_name:
                 attributes = [graphs_features[index] for index in indexes]
@@ -120,13 +126,25 @@ if __name__ == '__main__':
     parser.add_argument('--task', help='Task to execute. Only %s are currently available.'%str(dataset.available_tasks()))
     parser.add_argument('--cached', default=False, type=bool)
     parser.add_argument('--reverse', default=False, type=bool)
+    parser.add_argument('--pyramid', default=False, type=bool)
     args = parser.parse_args()
     if args.task in dataset.available_tasks():
         with tf.device('/cpu'):
             find_nearest_neighbor(args.task, n_neighbors=7,
                                   load_neighbors=args.cached,
                                   reverse=args.reverse,
-                                  print_pyramid=False)
+                                  print_pyramid=args.pyramid)
+    elif args.task == 'synthetic':
+        num_nodes = 10
+        edges = [(0,1),(1,2),(2,3),(3,4),(4,0),(3,5),(5,6),(6,7),(7,8),(8,6)]
+        A = np.zeros(shape=(num_nodes, num_nodes))
+        for (i,j) in edges:
+            A[i,j] = 1
+            A[j,i] = 1
+        A = tf.constant(A,dtype=tf.int64)
+        k, r = 18, 0.99
+        Call, Gall = loukas.attempt_coarsening('variation_neighborhood', A, k, r)
+        loukas.print_pyramid(Call, Gall, depth=None)
     else:
         print('Unknown task %s'%args.task)
         parser.print_help()

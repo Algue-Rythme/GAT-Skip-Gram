@@ -286,7 +286,7 @@ def coarsening_quality(G, C, kmax=30, Uk=None, lk=None):
 
     return metrics
 
-def plot_coarsening(Gall, Call, size=3, edge_width=0.8, node_size=20, alpha=0.55, title=''):
+def plot_coarsening(Gall, Call, size=3, edge_width=0.8, node_size=20, alpha=0.55, title='', monochrom=False):
     """
     Plot a (hierarchical) coarsening
 
@@ -301,6 +301,8 @@ def plot_coarsening(Gall, Call, size=3, edge_width=0.8, node_size=20, alpha=0.55
     """
     # colors signify the size of a coarsened subgraph ('k' is 1, 'g' is 2, 'b' is 3, and so on)
     colors = ['k', 'g', 'b', 'r', 'y']
+    if monochrom:
+        colors = ['b']*len(colors)
 
     n_levels = len(Gall)-1
     if n_levels == 0: return None

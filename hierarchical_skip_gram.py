@@ -4,9 +4,10 @@ import logging
 import math
 import random
 import traceback
-import matplotlib.pyplot as plt
+#import matplotlib.pyplot as plt
 import numpy as np
 import scipy
+from sklearn.model_selection import train_test_split, ParameterGrid
 import tensorflow as tf
 import baselines
 import dataset
@@ -15,6 +16,9 @@ import gcn
 import truncated_krylov
 import loukas
 import utils
+import warnings
+
+warnings.filterwarnings("ignore", category=DeprecationWarning)
 
 
 def get_gnn(num_features, gnn_type):
@@ -27,7 +31,6 @@ def get_gnn(num_features, gnn_type):
         return gat.GraphAttention(num_features, attn_heads=2, attn_heads_reduction='average')
     else:
         raise ValueError
-
 
 class DifferentiablePooler(tf.keras.layers.Layer):
 
@@ -45,7 +48,6 @@ class DifferentiablePooler(tf.keras.layers.Layer):
         X = loukas.pooling(self.pooling_method, C, X)
         X = self.gnn_out(X)
         return X
-
 
 class MnistConv(tf.keras.layers.Layer):
 
@@ -74,7 +76,6 @@ class MnistConv(tf.keras.layers.Layer):
         x = self.flattener(x)
         x = self.dense_1(x)
         return x
-
 
 class HierarchicalLoukas(tf.keras.models.Model):
 
@@ -109,27 +110,30 @@ class HierarchicalLoukas(tf.keras.models.Model):
     def features_dim(self):
         return self.num_features
 
-    def dump_to_csv(self, csv_file, graph_inputs):
+    def dump_to_csv(self, csv_file, graph_inputs, include_max=False):
         print('Dumping to CSV...')
         progbar = tf.keras.utils.Progbar(len(graph_inputs[0]))
-        with open(csv_file, 'w') as f:
+        with open(csv_file, 'w') as file:
             for step, graph_input in enumerate(zip(*graph_inputs)):
                 _, context, _ = self(graph_input)
                 if self.collapse:
                     embed = tf.squeeze(context[-1])
                 else:
-                    max_features = [tf.math.reduce_max(t, axis=0) for t in context]
                     mean_features = [tf.math.reduce_mean(t, axis=0) for t in context]
+                    if include_max:
+                        max_features = [tf.math.reduce_max(t, axis=0) for t in context]
+                    else:
+                        max_features = []
                     embed = tf.concat(max_features + mean_features, axis=0)
-                f.write('\t'.join(map(str, embed.numpy().tolist()))+'\n')
+                file.write('\t'.join(map(str, embed.numpy().tolist()))+'\n')
                 progbar.update(step+1)
 
-    @utils.memoize
     def coarsen(self, A):
         pooling_matrices, graphs = loukas.attempt_coarsening(self.coarsening_method, A, self.k, self.r)
+        assert pooling_matrices[-1] is None
         del pooling_matrices[-1]
         last_graph = graphs[-1]
-        for _ in range(self.max_num_stages - len(graphs) + 1):
+        for _ in range(self.max_num_stages - (len(graphs)-1)):
             pooling_matrices.append(scipy.sparse.identity(int(last_graph.N)))
             graphs.append(last_graph)
         pooling_matrices.append(None)
@@ -159,7 +163,6 @@ class HierarchicalLoukas(tf.keras.models.Model):
             context.append(X)
         return vocab, context, indicator
 
-
 def get_current_labels(graph_lengths, depth, k, indicator):
     context_size = int(indicator[depth][k].shape[0])
     before = tf.zeros(shape=(context_size, sum(graph_lengths[   :k])), dtype=tf.float32)
@@ -168,9 +171,7 @@ def get_current_labels(graph_lengths, depth, k, indicator):
     labels = tf.concat([before, onehot, after], axis=1)
     return labels
 
-
-def forward_batch(model, graph_inputs, batch_size):
-    graph_indexes = random.sample(list(range(len(graph_inputs[0]))), batch_size+1)
+def forward_batch(model, graph_inputs, graph_indexes):
     max_depth = model.max_depth()
     vocab = [[] for _ in range(max_depth)]
     context = [[] for _ in range(max_depth)]
@@ -187,18 +188,15 @@ def forward_batch(model, graph_inputs, batch_size):
         graph_lengths[depth] = lengths
     return graph_lengths, vocab, context, indicator
 
-
 def update_metric(metric, labels, similarity):
     labels = tf.reshape(labels, [-1])
     similarity = tf.nn.sigmoid(tf.reshape(similarity, [-1]))
     metric.update_state(labels, similarity)
 
-
 def negative_sampling(labels, similarity):
     weights = tf.size(labels, out_type=tf.float32) / tf.reduce_sum(labels)
     loss = tf.nn.weighted_cross_entropy_with_logits(labels, similarity, weights)
     return loss
-
 
 def infoNCE(labels, similarity):
     """InfoNCE objective based on maximization of mutual information.
@@ -217,7 +215,6 @@ def infoNCE(labels, similarity):
 
     return loss
 
-
 def get_loss(loss_type):
     if loss_type == 'negative_sampling':
         return negative_sampling
@@ -225,9 +222,9 @@ def get_loss(loss_type):
         return infoNCE
     raise ValueError
 
-
-def process_batch(model, graph_inputs, loss_fn, batch_size, metrics):
-    graph_lengths, vocab, context, indicator = forward_batch(model, graph_inputs, batch_size)
+def process_batch(model, graph_inputs, training_indexes, loss_fn, batch_size, metrics):
+    graph_indexes = random.sample(training_indexes, batch_size+1)
+    graph_lengths, vocab, context, indicator = forward_batch(model, graph_inputs, graph_indexes)
     max_depth = model.max_depth()
     losses = [[] for _ in range(max_depth)]
     for depth in range(max_depth):
@@ -241,15 +238,14 @@ def process_batch(model, graph_inputs, loss_fn, batch_size, metrics):
         losses[depth] = tf.math.reduce_mean(losses[depth])
     return losses
 
-
-def train_epoch(model, graph_inputs, loss_fn,
+def train_epoch(model, graph_inputs, training_indexes, loss_fn,
                 batch_size, num_batchs, lr, print_acc):
     optimizer = tf.keras.optimizers.Adam(lr)
     progbar = tf.keras.utils.Progbar(num_batchs)
     metrics = [tf.keras.metrics.BinaryAccuracy() for _ in range(model.max_depth())]
     for step in range(num_batchs):
         with tf.GradientTape() as tape:
-            losses = process_batch(model, graph_inputs, loss_fn, batch_size, metrics)
+            losses = process_batch(model, graph_inputs, training_indexes, loss_fn, batch_size, metrics)
             total_loss = tf.math.reduce_sum(losses)
         gradients = tape.gradient(total_loss, model.trainable_variables)
         optimizer.apply_gradients(zip(gradients, model.trainable_variables))
@@ -261,9 +257,14 @@ def train_epoch(model, graph_inputs, loss_fn,
 
 
 def train_embeddings(dataset_name, load_weights_path, graph_inputs,
+                     training_indexes, testing_indexes, fully_inductive,
                      loss_type, max_depth, num_features, batch_size,
                      num_epochs, gnn_type, verbose):
-    num_graphs = len(graph_inputs[0])
+    if fully_inductive:
+        epoch_indexes = training_indexes  # Less overfitting
+    else:
+        epoch_indexes = training_indexes + testing_indexes
+    local_num_graphs = len(epoch_indexes)
     mnist_conv = dataset_name == 'FRANKENSTEIN'
     if mnist_conv:
         print('Use: MnistConv')
@@ -279,21 +280,19 @@ def train_embeddings(dataset_name, load_weights_path, graph_inputs,
         model.load_weights(load_weights_path)
     loss_fn = get_loss(loss_type)
     _, graph_embedder_file, csv_file = utils.get_weight_filenames(dataset_name)
-    num_batchs = math.ceil(num_graphs // (batch_size+1))
+    num_batchs = math.ceil(local_num_graphs // (batch_size+1))
     for epoch in range(num_epochs):
         print('epoch %d/%d'%(epoch+1, num_epochs))
         lr = 1e-4 * np.math.pow(1.1, - 50.*(epoch / num_epochs))
         if load_weights_path is None:
-            train_epoch(model, graph_inputs, loss_fn, batch_size, num_batchs, lr,
+            train_epoch(model, graph_inputs, epoch_indexes, loss_fn, batch_size, num_batchs, lr,
                         print_acc=(loss_type == 'negative_sampling'))
         if epoch+1 == num_epochs or (epoch+1)%5 == 0 or verbose == 1:
             model.save_weights(graph_embedder_file)
-            model.dump_to_csv(csv_file, graph_inputs)
-            acc, std = baselines.evaluate_embeddings(dataset_name, num_tests=10)
-            print('Accuracy SVM: %.2f+-%.2f%%'%(acc['svm-rbf']*100., std['svm-rbf']*100.))
-            # print('Accuracy Adaboost: %.2f+-%.2f%%'%(acc['adaboost']*100., std['adaboost']*100.))
+            model.dump_to_csv(csv_file, graph_inputs, include_max=True)
+            trains, tests = baselines.evaluate_embeddings(dataset_name, normalize='std', grid=False)
+            print('train_acc=%.2f%% test_acc=%.2f%%'%(trains, tests))
             print('')
-
 
 if __name__ == '__main__':
     seed = random.randint(1, 1000 * 1000)
@@ -308,10 +307,12 @@ if __name__ == '__main__':
     parser.add_argument('--batch_size', type=int, default=8, help='Size of batchs')
     parser.add_argument('--num_epochs', type=int, default=30, help='Number of epochs')
     parser.add_argument('--gnn_type', default='krylov-4', help='Nature of vocabulary extractor')
-    parser.add_argument('--num_tests', type=int, default=25, help='Number of repetitions')
+    parser.add_argument('--num_tests', type=int, default=3, help='Number of repetitions')
     parser.add_argument('--device', default='0', help='Index of the target GPU. Specify \'cpu\' to disable gpu support.')
     parser.add_argument('--verbose', type=int, default=0, help='0 or 1.')
     parser.add_argument('--load_weights_path', default=None, help='File from which to retrieve weights of the model.')
+    parser.add_argument('--fully_inductive', action='store_true', help='retrained model on test set')
+    parser.add_argument('--no_grid', action='store_true', help='no grid search')
     args = parser.parse_args()
     departure_time = utils.get_now()
     print(departure_time)
@@ -321,37 +322,64 @@ if __name__ == '__main__':
             all_graphs = dataset.read_dataset(args.task,
                                               with_edge_features=False,
                                               standardize=True)
-            accs = collections.defaultdict(list)
-            num_tests = args.num_tests
-            for test in range(num_tests):
-                print('Test %d'%(test+1))
-                print(utils.str_from_args(args))
-                restart = True
-                while restart:
-                    try:
-                        train_embeddings(args.task, args.load_weights_path, all_graphs,
-                                         args.loss_type, args.max_depth, args.num_features,
-                                         args.batch_size, args.num_epochs, args.gnn_type,
-                                         args.verbose)
-                        cur_acc, _ = baselines.evaluate_embeddings(args.task, num_tests=60, final=True, low_memory=True)
-                        restart = False
-                    except Exception as e:
-                        print(e.__doc__)
+            if args.no_grid:
+                hyper_params = {'depth': [args.max_depth],
+                                'gnn_type': [args.gnn_type],
+                                'num_features':[args.num_features]}
+            else:
+                hyper_params = {'depth': [3, 5],
+                                'gnn_type': ['krylov-3', 'krylov-5'],
+                                'num_features':[16, 64, 128]}
+            best_train_accs, best_test_accs, params, best_train_std, best_test_std = [], [], [], [], []
+            num_graphs = len(all_graphs[0])
+            strates = utils.get_graph_labels(args.task)
+            for hyper_param in ParameterGrid(hyper_params):
+                gnn_type, depth, num_features = hyper_param['gnn_type'], hyper_param['depth'], hyper_param['num_features']
+                train_accs, test_accs = [], []
+                num_tests = args.num_tests
+                for test in range(num_tests):
+                    training_set, testing_set = train_test_split(list(range(num_graphs)), train_size=0.8, shuffle=True, stratify=strates)
+                    utils.print_split_indexes_to_csv(args.task, training_set, testing_set)
+                    print('Test %d'%(test+1))
+                    print(utils.str_from_args(args))
+                    print('Hyper params: ', hyper_param)
+                    restart = True
+                    while restart:
                         try:
-                            print(e)
-                        except:
-                            pass
-                        logging.error(traceback.format_exc())
-                        restart = True
-                for key in cur_acc:
-                    accs[key].append(cur_acc[key])
-                print('')
-            for key in accs:
-                acc_avg = tf.math.reduce_mean(accs[key])
-                acc_std = tf.math.reduce_std(accs[key])
+                            train_embeddings(args.task, args.load_weights_path, all_graphs,
+                                             training_set, testing_set, args.fully_inductive,
+                                             args.loss_type, depth, num_features,
+                                             args.batch_size, args.num_epochs, gnn_type,
+                                             args.verbose)
+                            train_acc, test_acc = baselines.evaluate_embeddings(args.task, normalize='std', grid=True)
+                            restart = False
+                            train_accs.append(train_acc)
+                            test_accs.append(test_acc)
+                        except Exception as e:
+                            print(e.__doc__)
+                            try:
+                                print(e)
+                            except:
+                                pass
+                            logging.error(traceback.format_exc())
+                            restart = False  #True
+                    print('')
+                print('Hyper params: ', hyper_param)
+                best_train_std.append(float(tf.math.reduce_std(train_accs)))
+                best_test_std.append(float(tf.math.reduce_std(test_accs)))
+                train_accs = tf.math.reduce_mean(train_accs)
+                test_accs = tf.math.reduce_mean(test_accs)
+                best_train_accs.append(float(train_accs))
+                best_test_accs.append(float(test_accs))
+                params.append(hyper_param)
                 print(utils.str_from_args(args))
-                print('Final accuracy %s: %.2f+-%.2f%%'%(key, acc_avg*100., acc_std*100.))
-                utils.record_args('embeddings-'+key, departure_time, args.task, args, acc_avg, acc_std)
+                print('train_acc=%.2f%% test_acc=%.2f%%'%(train_accs, test_accs))
+                utils.record_args('embeddings-'+str(hyper_param), departure_time, args.task, args, train_accs, test_accs)
+                print('')
+            best_acc_index = np.argmin(best_train_accs)
+            print('best_test_acc %.2f+-%.2f%%'%(best_test_accs[best_acc_index], best_train_std[best_acc_index]))
+            print('with params ', params[best_acc_index])
+            print('with train_acc %.2f+-%.2f%%'%(best_train_accs[best_acc_index], best_test_std[best_acc_index]))
     else:
         print('Unknown task %s'%args.task)
         parser.print_help()

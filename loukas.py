@@ -11,9 +11,14 @@ import truncated_krylov
 import utils
 
 
-def print_pyramid(Call, Gall, depth=None, smart_coordinates=True):
+def print_pyramid(Call, Gall, depth=None, smart_coordinates=True, init_coordinates=None):
     if smart_coordinates:
-        Gall[0].set_coordinates(kind='spring')
+        if init_coordinates is None:
+            Gall[0].set_coordinates(kind='spring')
+            monochrom = False
+        else:
+            Gall[0].set_coordinates(init_coordinates)
+            monochrom = True
         coordinates = Gall[0].coords
         for G, C in zip(Gall[1:], Call):
             C = C.power(2)
@@ -27,7 +32,7 @@ def print_pyramid(Call, Gall, depth=None, smart_coordinates=True):
     if depth is not None:
         Gall = Gall[:depth]
         Call = Call[:depth]
-    loukas.plot_coarsening(Gall, Call)
+    loukas.plot_coarsening(Gall, Call, monochrom=monochrom)
     # plt.show()
 
 

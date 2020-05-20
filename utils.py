@@ -4,6 +4,7 @@ import os
 import random
 import warnings
 import numpy as np
+from sklearn.preprocessing import LabelEncoder
 import tensorflow as tf
 try:
     import pygsp
@@ -111,18 +112,37 @@ def memoize(func):
         return cache[key]
     return memoized_func
 
+def get_graph_labels(dataset_name):
+    labels_filename = os.path.join(dataset_name, '%s_graph_labels.txt'%dataset_name)
+    with open(labels_filename, 'r') as f:
+        labels_data = np.loadtxt(f, ndmin=1).astype(dtype=np.int64)
+    label_encoder = LabelEncoder()
+    label_encoder.fit(labels_data)
+    return label_encoder.transform(labels_data)
+
 def get_data(dataset_name, graph2vec):
     if graph2vec:
         graph_embedder_filename = os.path.join('../graph2vec/features/', dataset_name+'.csv')
     else:
         graph_embedder_filename = os.path.join(dataset_name+'_weights', 'graph_embeddings.csv')
-    labels_filename = os.path.join(dataset_name, '%s_graph_labels.txt'%dataset_name)
     with open(graph_embedder_filename, 'r') as f:
         if graph2vec:
             embeddings_data = np.loadtxt(f, delimiter=',', skiprows=1).astype(np.float32)
             embeddings_data = embeddings_data[:,1:]  # remove node index
         else:
             embeddings_data = np.loadtxt(f, delimiter='\t').astype(np.float32)
-    with open(labels_filename, 'r') as f:
-        labels_data = np.loadtxt(f, ndmin=1)
+    labels_data = get_graph_labels(dataset_name)
     return embeddings_data, labels_data
+
+def print_split_indexes_to_csv(dataset_name, train_indexes, test_indexes):
+    filename = os.path.join(dataset_name+'_weights', 'graph_indexes.csv')
+    with open(filename, 'w') as file:
+        file.write('\t'.join(map(str, train_indexes))+'\n')
+        file.write('\t'.join(map(str, test_indexes))+'\n')
+
+def get_train_test_indexes(dataset_name):
+    filename = os.path.join(dataset_name+'_weights', 'graph_indexes.csv')
+    with open(filename, 'r') as file:
+        train_indexes = list(map(int, file.readline().split()))
+        test_indexes = list(map(int, file.readline().split()))
+    return train_indexes, test_indexes

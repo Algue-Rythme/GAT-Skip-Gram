@@ -7,11 +7,13 @@ from sklearn import svm
 from sklearn.neighbors import KNeighborsClassifier
 from sklearn.ensemble import AdaBoostClassifier
 from sklearn.metrics import accuracy_score
-from sklearn.model_selection import train_test_split
+from sklearn.model_selection import train_test_split, StratifiedKFold, GridSearchCV
 import tensorflow as tf
 import dataset
 import utils
+import warnings
 
+warnings.filterwarnings("ignore", category=DeprecationWarning)
 
 def cosine_similarity_histogram(embeddings):
     epsilon = 1e-4
@@ -23,86 +25,75 @@ def cosine_similarity_histogram(embeddings):
     probs, buckets = np.histogram(scores, bins=20, range=(-1., 1.))
     return probs / scores.shape[0], buckets
 
-def learn_embeddings(embeddings, labels, ratio, algo):
-    test_size = int(labels.shape[0] * ratio)
-    x_train, x_test, y_train, y_test = train_test_split(embeddings, labels, test_size=test_size, shuffle=True)
-    if algo[:3] == 'knn':
-        model = KNeighborsClassifier(n_neighbors=int(algo[3:]))
-    elif algo == 'adaboost':
-        model = AdaBoostClassifier(n_estimators=100)
-    elif algo[:4] == 'svm-':
-        model = svm.SVC(gamma='scale', kernel=algo[4:])
-    elif algo == 'perceptron':
-        y_train = tf.keras.utils.to_categorical(y_train)
-        y_train = y_train[:,y_train.any(0)]
-        num_classes = y_train.shape[-1]
-        model = tf.keras.models.Sequential([
-            tf.keras.layers.Dense(128, activation='relu'),
-            tf.keras.layers.BatchNormalization(),
-            tf.keras.layers.Dense(16, activation='relu'),
-            tf.keras.layers.Dense(num_classes, activation='linear'),
-            tf.keras.layers.Activation('softmax')
-        ])
-        model.compile(optimizer='adam', loss='categorical_crossentropy', metrics=['acc'])
-        model.fit(x_train, y_train, epochs=20, verbose=0, batch_size=64)
-        y_test = tf.keras.utils.to_categorical(y_test)
-        y_test = y_test[:,y_test.any(0)]
-        _, acc = model.evaluate(x_test, y_test, verbose=0)
-        return acc
-    model.fit(x_train, y_train)
-    y_pred = model.predict(x_test)
-    cur_acc = accuracy_score(y_test, y_pred)
-    return cur_acc
+def kfold_svm(x_non_test, x_test, y_non_test, y_test, grid):
+    kfold = StratifiedKFold(n_splits=5)
+    if grid:
+        parameters = [{'kernel': ['rbf'], 'gamma':['scale', 0.1, 1, 10, 100, 1000], 'C': [0.1, 1, 10, 100, 1000]}]
+    else:
+        parameters = [{'kernel': ['rbf'], 'gamma':['scale'], 'C': [1.]}]
+    grid_search = GridSearchCV(svm.SVC(), parameters, scoring='accuracy',
+                               cv=kfold.split(x_non_test, y_non_test), refit=True,
+                               verbose=1, n_jobs=-1)
+    grid_search.fit(x_non_test, y_non_test)
+    train_acc = float(grid_search.best_score_)
 
-def reduce_num_tests(algo, num_tests, num_data):
-    if algo.startswith('svm-') or algo.startswith('knn'):
-        cur_num_tests = min(10, num_tests / max(1, num_data // 1000))
-    if algo == 'adaboost':
-        cur_num_tests = max(2, (num_tests // 20))
-    if algo == 'perceptron':
-        cur_num_tests = max(3, (num_tests // 5))
-    return cur_num_tests
+    best_model = grid_search.best_estimator_
+    y_pred_test = best_model.predict(x_test)
+    test_acc = accuracy_score(y_test, y_pred_test)
 
-def evaluate_embeddings(dataset_name, num_tests, final=False, low_memory=False, graph2vec=False):
-    embeddings_data, labels_data = utils.get_data(dataset_name, graph2vec)
-    accs = collections.defaultdict(list)
-    algos = ['svm-rbf']
-    if final:
-        algos = ['svm-sigmoid', 'svm-poly', 'svm-rbf', 'knn3', 'knn7', 'adaboost']
-        if not low_memory:
-            algos.append('perceptron')
-    # num_data = int(labels_data.shape[0])
-    for algo in algos:
-        print('Algo %s'%algo)
-        # cur_num_tests = reduce_num_tests(algo, num_tests, num_data)
-        cur_num_tests = 10
-        progbar = tf.keras.utils.Progbar(cur_num_tests)
-        for test in range(cur_num_tests):
-            acc = learn_embeddings(embeddings_data, labels_data, ratio=0.2, algo=algo)
-            accs[algo].append(acc)
-            progbar.update(test+1, [('acc', acc*100.)])
-    probs, bins = cosine_similarity_histogram(embeddings_data)
-    for prob, bucket_a, bucket_b in zip(probs.tolist(), bins.tolist(), bins.tolist()[1:]):
-        print('[%.2f,%.2f]=%.2f'%(bucket_a, bucket_b, prob), end=' ')
-    print('')
-    acc_avg, acc_std = dict(), dict()
-    for key in accs:
-        acc_avg[key] = tf.math.reduce_mean(accs[key])
-        acc_std[key] = tf.math.reduce_std(accs[key])
-    return acc_avg, acc_std
+    return train_acc*100., test_acc*100., dict(grid_search.best_params_)
+
+def load_two_files(dataset_name, graph2vec):
+    if graph2vec:  # WARNING SPLIT TRAIN TEST
+        embeddings_data, labels = utils.get_data(dataset_name, graph2vec=True)
+        y_train, y_test = train_test_split(labels, train_size=0.8, shuffle=True)
+    else:
+        embeddings_data, labels = utils.get_data(dataset_name, graph2vec=False)
+        train_indexes, test_indexes = utils.get_train_test_indexes(dataset_name)
+        x_train = embeddings_data[train_indexes]
+        x_test = embeddings_data[test_indexes]
+        y_train = labels[train_indexes]
+        y_test = labels[test_indexes]
+        embeddings_data = np.concatenate([x_train, x_test])
+    return embeddings_data, y_train, y_test
+
+def evaluate_embeddings(dataset_name, graph2vec=False, normalize='', histo=False, grid=False):
+    embeddings_data, y_train, y_test = load_two_files(dataset_name, graph2vec)
+    if 'std' in normalize:
+        embeddings_data = embeddings_data - np.mean(embeddings_data, axis=0, keepdims=True)
+        epsilon = 1e-3
+        embeddings_data = embeddings_data / (epsilon + np.std(embeddings_data, axis=0, keepdims=True))
+    if 'norm' in normalize:
+        embeddings_data = embeddings_data / np.linalg.norm(embeddings_data, axis=1, keepdims=True)
+    x_train = embeddings_data[:int(y_train.shape[0]),:]
+    x_test = embeddings_data[int(y_train.shape[0]):,:]
+    train_accs, test_accs, params = kfold_svm(x_train, x_test, y_train, y_test, grid)
+    print('train_accs=%.2f%%'%train_accs)
+    print('test_accs=%.2f%%'%test_accs)
+    print('params=%s'%str(params))
+    if histo:
+        probs, bins = cosine_similarity_histogram(embeddings_data)
+        for prob, bucket_a, bucket_b in zip(probs.tolist(), bins.tolist(), bins.tolist()[1:]):
+            print('[%.2f,%.2f]=%.2f'%(bucket_a, bucket_b, prob), end=' ')
+        print('')
+    return train_accs, test_accs
 
 if __name__ == '__main__':
-    seed = random.randint(1, 1000 * 1000)
+    infinity = 1000 * 1000
+    first_non_null_natural_integer = 1
+    seed = random.randint(first_non_null_natural_integer, infinity)
+    optimal_seed_shift_obtained_by_extensive_grid_search = 3165
+    np.random.seed(seed + optimal_seed_shift_obtained_by_extensive_grid_search)
     print('Use seed %d'%seed)
-    np.random.seed(seed + 3165)
     parser = argparse.ArgumentParser()
     parser.add_argument('--task', help='Task to execute. Only %s are currently available.'%str(dataset.available_tasks()))
     parser.add_argument('--origin', help='Whether we should use the CSV of Graph2Vec or Vanilla', default='vanilla')
+    parser.add_argument('--normalize', help='Normalize ?', default='std')
     args = parser.parse_args()
     if args.task in dataset.available_tasks():
         graph2vec_b = args.origin == 'graph2vec'
-        acc_avg_g, acc_std_g = evaluate_embeddings(args.task, num_tests=100, graph2vec=graph2vec_b)
-        print('Accuracy: %.2f+-%.2f%%'%(acc_avg_g*100., acc_std_g*100.))
+        trains, tests = evaluate_embeddings(args.task, graph2vec=graph2vec_b, normalize=args.normalize)
+        print('train_acc=%.2f%% test_acc=%.2f%%'%(trains*100., tests*100.))
     else:
         print('Unknown task %s'%args.task)
         parser.print_help()
