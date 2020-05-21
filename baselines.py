@@ -2,6 +2,7 @@ import argparse
 import collections
 import os
 import random
+import multiprocessing
 import numpy as np
 from sklearn import svm
 from sklearn.neighbors import KNeighborsClassifier
@@ -31,9 +32,10 @@ def kfold_svm(x_non_test, x_test, y_non_test, y_test, grid):
         parameters = [{'kernel': ['rbf'], 'gamma':['scale', 0.1, 1, 10, 100, 1000], 'C': [0.1, 1, 10, 100, 1000]}]
     else:
         parameters = [{'kernel': ['rbf'], 'gamma':['scale'], 'C': [1.]}]
+    n_jobs = max(multiprocessing.cpu_count()-2, 1)
     grid_search = GridSearchCV(svm.SVC(), parameters, scoring='accuracy',
                                cv=kfold.split(x_non_test, y_non_test), refit=True,
-                               verbose=1, n_jobs=6)
+                               verbose=1, n_jobs=n_jobs)
     grid_search.fit(x_non_test, y_non_test)
     train_acc = float(grid_search.best_score_)
 
