@@ -91,15 +91,17 @@ def normalize_adjacency(A, rooted_subtree, identity=True):
 def dispatch(graph_inputs, index):
     return [graph_input[index] for graph_input in graph_inputs]
 
-def get_weight_filenames(dataset_name):
+def create_dir(dataset_name):
     try:
         os.mkdir(dataset_name+'_weights')
     except FileExistsError:
         pass
-    finally:
-        wl_embedder_file = os.path.join(dataset_name+'_weights', 'wl_embedder.h5')
-        graph_embedder_file = os.path.join(dataset_name+'_weights', 'graph_embedder.h5')
-        csv_file = os.path.join(dataset_name+'_weights', 'graph_embeddings.csv')
+
+def get_weight_filenames(dataset_name):
+    create_dir(dataset_name)
+    wl_embedder_file = os.path.join(dataset_name+'_weights', 'wl_embedder.h5')
+    graph_embedder_file = os.path.join(dataset_name+'_weights', 'graph_embedder.h5')
+    csv_file = os.path.join(dataset_name+'_weights', 'graph_embeddings.csv')
     return wl_embedder_file, graph_embedder_file, csv_file
 
 def memoize(func):
@@ -135,6 +137,7 @@ def get_data(dataset_name, graph2vec):
     return embeddings_data, labels_data
 
 def print_split_indexes_to_csv(dataset_name, train_indexes, test_indexes):
+    create_dir(dataset_name)
     filename = os.path.join(dataset_name+'_weights', 'graph_indexes.csv')
     with open(filename, 'w') as file:
         file.write('\t'.join(map(str, train_indexes))+'\n')
