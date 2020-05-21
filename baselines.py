@@ -33,7 +33,7 @@ def kfold_svm(x_non_test, x_test, y_non_test, y_test, grid):
         parameters = [{'kernel': ['rbf'], 'gamma':['scale'], 'C': [1.]}]
     grid_search = GridSearchCV(svm.SVC(), parameters, scoring='accuracy',
                                cv=kfold.split(x_non_test, y_non_test), refit=True,
-                               verbose=1, n_jobs=-1)
+                               verbose=1, n_jobs=6)
     grid_search.fit(x_non_test, y_non_test)
     train_acc = float(grid_search.best_score_)
 

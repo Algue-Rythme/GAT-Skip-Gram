@@ -329,7 +329,7 @@ if __name__ == '__main__':
             else:
                 hyper_params = {'depth': [3, 5],
                                 'gnn_type': ['krylov-3', 'krylov-5'],
-                                'num_features':[16, 64, 128]}
+                                'num_features': [128, 256]}
             best_train_accs, best_test_accs, params, best_train_std, best_test_std = [], [], [], [], []
             num_graphs = len(all_graphs[0])
             strates = utils.get_graph_labels(args.task)
