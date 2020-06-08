@@ -9,10 +9,11 @@ from sklearn.neighbors import KNeighborsClassifier
 from sklearn.ensemble import AdaBoostClassifier
 from sklearn.metrics import accuracy_score
 from sklearn.model_selection import train_test_split, StratifiedKFold, GridSearchCV
-import tensorflow as tf
+# import tensorflow as tf
 import dataset
 import utils
 import warnings
+
 
 warnings.filterwarnings("ignore", category=DeprecationWarning)
 
@@ -48,7 +49,11 @@ def kfold_svm(x_non_test, x_test, y_non_test, y_test, grid):
 def load_two_files(dataset_name, graph2vec):
     if graph2vec:  # WARNING SPLIT TRAIN TEST
         embeddings_data, labels = utils.get_data(dataset_name, graph2vec=True)
-        y_train, y_test = train_test_split(labels, train_size=0.8, shuffle=True)
+        x_train, x_test, y_train, y_test = train_test_split(embeddings_data, labels,
+                                                            train_size=0.8,
+                                                            shuffle=True,
+                                                            stratify=labels)
+        embeddings_data = np.concatenate([x_train, x_test])
     else:
         embeddings_data, labels = utils.get_data(dataset_name, graph2vec=False)
         train_indexes, test_indexes = utils.get_train_test_indexes(dataset_name)
@@ -91,11 +96,12 @@ if __name__ == '__main__':
     parser.add_argument('--task', help='Task to execute. Only %s are currently available.'%str(dataset.available_tasks()))
     parser.add_argument('--origin', help='Whether we should use the CSV of Graph2Vec or Vanilla', default='vanilla')
     parser.add_argument('--normalize', help='Normalize ?', default='std')
+    parser.add_argument('--grid', action='store_true')
     args = parser.parse_args()
     if args.task in dataset.available_tasks():
         graph2vec_b = args.origin == 'graph2vec'
-        trains, tests = evaluate_embeddings(args.task, graph2vec=graph2vec_b, normalize=args.normalize)
-        print('train_acc=%.2f%% test_acc=%.2f%%'%(trains*100., tests*100.))
+        trains, tests = evaluate_embeddings(args.task, graph2vec=graph2vec_b, normalize=args.normalize, grid=args.grid)
+        print('train_acc=%.2f%% test_acc=%.2f%%'%(trains, tests))
     else:
         print('Unknown task %s'%args.task)
         parser.print_help()
