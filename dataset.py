@@ -261,7 +261,7 @@ def available_tasks():
              'PTC_MR', 'PTC_FM', 'FRANKENSTEIN',
              # 'Letter-high', 'Letter-med', 'Letter-low',
              # 'COLLAB', 'MCF-7', 'MCF-7H',
-             'REDDIT-BINARY', 'REDDIt-MULTI-5K',
+             'REDDIT-BINARY', 'REDDIT-MULTI-5K',
              'DLA', 'DLA2',
              'IMDB-BINARY', 'MNIST_test',
              'FASHION_MNIST_test', 'CIFAR10_test']
