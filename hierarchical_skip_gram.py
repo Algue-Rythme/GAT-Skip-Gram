@@ -1,10 +1,13 @@
 import argparse
 import collections
 import logging
+import multiprocessing
 import math
 import random
 import traceback
 #import matplotlib.pyplot as plt
+from tqdm import tqdm
+from joblib import Parallel, delayed
 import numpy as np
 import scipy
 from sklearn.model_selection import train_test_split, ParameterGrid
@@ -139,6 +142,12 @@ class HierarchicalLoukas(tf.keras.models.Model):
         pooling_matrices.append(None)
         return pooling_matrices, graphs
 
+    def pre_compute_loukas(self, inputs):
+        ADJ_IDX = 1
+        functions = (delayed(loukas.attempt_coarsening)(self.coarsening_method, A, self.k, self.r) for A in tqdm(inputs[ADJ_IDX]))
+        n_jobs = max(multiprocessing.cpu_count()-2, 1)
+        _ = Parallel(n_jobs=n_jobs)(functions)
+
     def call(self, inputs):
         X, A = inputs[:2]
         pooling_matrices, graphs = self.coarsen(A)
@@ -259,7 +268,7 @@ def train_epoch(model, graph_inputs, training_indexes, loss_fn,
 def train_embeddings(dataset_name, load_weights_path, graph_inputs,
                      training_indexes, testing_indexes, fully_inductive,
                      loss_type, max_depth, num_features, batch_size,
-                     num_epochs, gnn_type, verbose):
+                     num_epochs, gnn_type, verbose, preprocessing=False):
     if fully_inductive:
         epoch_indexes = training_indexes  # Less overfitting
     else:
@@ -281,10 +290,13 @@ def train_embeddings(dataset_name, load_weights_path, graph_inputs,
     loss_fn = get_loss(loss_type)
     _, graph_embedder_file, csv_file = utils.get_weight_filenames(dataset_name)
     num_batchs = math.ceil(local_num_graphs // (batch_size+1))
+    if preprocessing:
+        with tf.device('/cpu:0'):
+            model.pre_compute_loukas(graph_inputs)   # OOM ERROR !!!
     for epoch in range(num_epochs):
         print('epoch %d/%d'%(epoch+1, num_epochs))
-        lr = 1e-4 * np.math.pow(1.1, - 50.*(epoch / num_epochs))
         if load_weights_path is None:
+            lr = 1e-4 * np.math.pow(1.1, - 50.*(epoch / num_epochs))
             train_epoch(model, graph_inputs, epoch_indexes, loss_fn, batch_size, num_batchs, lr,
                         print_acc=(loss_type == 'negative_sampling'))
         if epoch+1 == num_epochs or (epoch+1)%5 == 0 or verbose == 1:
