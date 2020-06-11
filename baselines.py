@@ -30,7 +30,9 @@ def cosine_similarity_histogram(embeddings):
 def kfold_svm(x_non_test, x_test, y_non_test, y_test, grid):
     kfold = StratifiedKFold(n_splits=5)
     if grid:
-        parameters = [{'kernel': ['rbf'], 'gamma':['scale', 0.1, 1, 10, 100, 1000], 'C': [0.1, 1, 10, 100, 1000]}]
+        parameters = [{'kernel': ['rbf'],
+                       'gamma':['scale', 0.1, 1, 10, 100, 1000],
+                       'C': [0.001, 0.01, 0.1, 1, 10, 100, 1000]}]
     else:
         parameters = [{'kernel': ['rbf'], 'gamma':['scale'], 'C': [1.]}]
     n_jobs = max(multiprocessing.cpu_count()-2, 1)

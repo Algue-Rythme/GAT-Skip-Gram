@@ -325,6 +325,7 @@ if __name__ == '__main__':
     parser.add_argument('--load_weights_path', default=None, help='File from which to retrieve weights of the model.')
     parser.add_argument('--fully_inductive', action='store_true', help='retrained model on test set')
     parser.add_argument('--no_grid', action='store_true', help='no grid search')
+    parser.add_argument('--no_features', action='store_true', help='no grid search')
     args = parser.parse_args()
     departure_time = utils.get_now()
     print(departure_time)
@@ -332,6 +333,7 @@ if __name__ == '__main__':
         device = '/cpu:0' if args.device == 'cpu' else '/gpu:'+args.device
         with tf.device(device):
             all_graphs = dataset.read_dataset(args.task,
+                                              with_node_features=(not args.no_features),
                                               with_edge_features=False,
                                               standardize=True)
             if args.no_grid:

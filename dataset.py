@@ -61,8 +61,8 @@ def get_normalized_degree(adj, normalized=False):
     log_degree = tf.math.log(1 + degree)
     return log_degree
 
-def get_node_features(prefix, standardize, graph_ids, new_node_ids, graph_adj):
-    node_attributes = node_features_from_attribute_file(prefix, standardize)
+def get_node_features(prefix, with_node_features, standardize, graph_ids, new_node_ids, graph_adj):
+    node_attributes = node_features_from_attribute_file(prefix, standardize) if with_node_features else None
     labels = node_features_from_label_file(prefix)
     node_features = node_attributes if node_attributes is not None else labels
     if node_attributes is not None and labels is not None:
@@ -142,10 +142,10 @@ def print_statistics(node_features, graph_adj, edge_features=None):
     else:
         print('no edge features')
 
-def read_dortmund(prefix, with_edge_features, standardize):
+def read_dortmund(prefix, with_node_features, with_edge_features, standardize):
     graph_ids, graph_nodes, new_node_ids = get_graph_node_ids(prefix)
     graph_adj, adj_lst = get_graph_adj(prefix, graph_nodes, graph_ids, new_node_ids)
-    node_features = get_node_features(prefix, standardize, graph_ids, new_node_ids, graph_adj)
+    node_features = get_node_features(prefix, with_node_features, standardize, graph_ids, new_node_ids, graph_adj)
     edge_features = None
     if with_edge_features:
         edge_features = get_edge_features(prefix, standardize, graph_nodes, graph_ids, new_node_ids, adj_lst)
@@ -153,11 +153,11 @@ def read_dortmund(prefix, with_edge_features, standardize):
         return node_features, graph_adj
     return node_features, graph_adj, edge_features
 
-def read_dataset(name, with_edge_features, standardize):
+def read_dataset(name, with_node_features=True, with_edge_features=False, standardize=True):
     print('opening %s...'%name, flush=True)
     if name == 'FRANKENSTEIN':
         standardize = False
-    graph_inputs = read_dortmund(name, with_edge_features, standardize)
+    graph_inputs = read_dortmund(name, with_node_features, with_edge_features, standardize)
     print('%s opened with success !'%name, flush=True)
     print_statistics(*graph_inputs)
     return graph_inputs
@@ -259,11 +259,9 @@ def available_tasks():
     tasks = ['ENZYMES', 'PROTEINS', 'PROTEINS_full', 'MUTAG',
              'PTC_MR', 'NCI1', 'NCI109', 'PTC_FR', 'DD',
              'PTC_MR', 'PTC_FM', 'FRANKENSTEIN',
-             # 'Letter-high', 'Letter-med', 'Letter-low',
-             # 'COLLAB', 'MCF-7', 'MCF-7H',
              'REDDIT-BINARY', 'REDDIT-MULTI-5K',
-             'DLA', 'DLA2',
-             'IMDB-BINARY', 'MNIST_test',
+             'DLA', 'DLA2', 'MNIST_test',
+             'IMDB-BINARY', 'IMDB-MULTI',
              'FASHION_MNIST_test', 'CIFAR10_test']
     return tasks
 
