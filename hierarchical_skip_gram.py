@@ -82,7 +82,7 @@ class MnistConv(tf.keras.layers.Layer):
 
 class HierarchicalLoukas(tf.keras.models.Model):
 
-    def __init__(self, num_features, max_num_stages, coarsening_method, pooling_method, gnn_type, collapse, mnist_conv):
+    def __init__(self, num_features, max_num_stages, coarsening_method, pooling_method, gnn_type, collapse, mnist_conv, stop_grad):
         super(HierarchicalLoukas, self).__init__()
         self.k = 6
         self.r = 0.99
@@ -106,6 +106,7 @@ class HierarchicalLoukas(tf.keras.models.Model):
         if self.collapse:
             self.fc_middle = tf.keras.layers.Dense(num_features, activation='relu')
             self.fc_out = tf.keras.layers.Dense(num_features, activation='linear')
+        self.stop_grad = stop_grad
 
     def max_depth(self):
         return self.max_num_stages+1 if self.collapse else self.max_num_stages
@@ -161,7 +162,8 @@ class HierarchicalLoukas(tf.keras.models.Model):
             vocab.append(wl_X)
             context.append(X)
             indicator.append(C.todense().astype(dtype=np.float32))
-            X = tf.stop_gradient(X)
+            if self.stop_grad:
+                X = tf.stop_gradient(X)
         if self.collapse:
             vocab.append(X)
             indicator.append(np.zeros(shape=(1, int(X.shape[0])), dtype=np.float32))
@@ -268,7 +270,7 @@ def train_epoch(model, graph_inputs, training_indexes, loss_fn,
 def train_embeddings(dataset_name, load_weights_path, graph_inputs,
                      training_indexes, testing_indexes, fully_inductive,
                      loss_type, max_depth, num_features, batch_size,
-                     num_epochs, gnn_type, verbose, preprocessing=False):
+                     num_epochs, gnn_type, verbose, preprocessing=False, stop_grad=False):
     if fully_inductive:
         epoch_indexes = training_indexes  # Less overfitting
     else:
@@ -283,7 +285,8 @@ def train_embeddings(dataset_name, load_weights_path, graph_inputs,
                                pooling_method='sum',
                                gnn_type=gnn_type,
                                collapse=False,
-                               mnist_conv=mnist_conv)
+                               mnist_conv=mnist_conv,
+                               stop_grad=stop_grad)
     if load_weights_path is not None:
         _ = model([graph_input[0] for graph_input in graph_inputs])
         model.load_weights(load_weights_path)
@@ -326,6 +329,7 @@ if __name__ == '__main__':
     parser.add_argument('--fully_inductive', action='store_true', help='retrained model on test set')
     parser.add_argument('--no_grid', action='store_true', help='no grid search')
     parser.add_argument('--no_features', action='store_true', help='no grid search')
+    parser.add_argument('--stop_grad', action='store_true', help='add stop_gradient between layers')
     args = parser.parse_args()
     departure_time = utils.get_now()
     print(departure_time)
@@ -364,7 +368,7 @@ if __name__ == '__main__':
                                              training_set, testing_set, args.fully_inductive,
                                              args.loss_type, depth, num_features,
                                              args.batch_size, args.num_epochs, gnn_type,
-                                             args.verbose)
+                                             args.verbose, stop_grad=args.stop_grad)
                             train_acc, test_acc = baselines.evaluate_embeddings(args.task, normalize='std', grid=True)
                             restart = False
                             train_accs.append(train_acc)
